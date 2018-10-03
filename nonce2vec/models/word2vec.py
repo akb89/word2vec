@@ -2,15 +2,21 @@
 
 import tensorflow as tf
 
+from collections import defaultdict
+
 
 class Word2Vec():
 
     def __init__(self):
-        self._vocabulary = []
+        self._word_freq = defaultdict()
+        self._idx2word = {}
+        self._word2idx = {}
 
     def build_vocab(self, input_filepath):
         with open(input_filepath, 'r') as input_stream:
-            self._vocabulary = tf.compat.as_str(input_stream.read()).split()
+            for word in input_stream.split():
+                self._word_freq += 1
+
 
     def train():
         pass
