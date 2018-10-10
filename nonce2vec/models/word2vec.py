@@ -2,16 +2,13 @@
 
 from collections import defaultdict
 
+import logging
+
 import math
 import six
-import logging
 import tensorflow as tf
 
 logger = logging.getLogger(__name__)
-
-
-def _generate_batch():
-    pass
 
 
 class Word2Vec():
@@ -20,8 +17,8 @@ class Word2Vec():
                  learning_rate, window_size):
         self._word_freq = defaultdict(int)
         self._id2word = {}
-        self._word2id = {}
-        self._discretized_data = []
+        self._word2id = defaultdict(lambda: 0)
+        self._batches_filepath = None
         self._min_count = min_count
         self._batch_size = batch_size
         self._embedding_size = embedding_size
@@ -33,6 +30,7 @@ class Word2Vec():
         self._tf_init = None
         self._train_inputs = None
         self._train_labels = None
+        self._num_batches = 0
 
     @property
     def vocab_size(self):
@@ -61,7 +59,8 @@ class Word2Vec():
                     embeddings = tf.Variable(
                         tf.random_uniform([self.vocab_size,
                                            self._embedding_size], -1.0, 1.0))
-                    embed = tf.nn.embedding_lookup(embeddings, train_inputs)
+                    embed = tf.nn.embedding_lookup(embeddings,
+                                                   self._train_inputs)
             # Construct the variables for the NCE loss
             with tf.name_scope('weights'):
                 nce_weights = tf.Variable(
@@ -80,7 +79,7 @@ class Word2Vec():
                     tf.nn.nce_loss(
                         weights=nce_weights,
                         biases=nce_biases,
-                        labels=train_labels,
+                        labels=self._train_labels,
                         inputs=embed,
                         num_sampled=self._num_neg_samples,
                         num_classes=self.vocab_size))
@@ -105,22 +104,43 @@ class Word2Vec():
         word_index = 0
         self._word2id['UNK'] = word_index
         for word, freq in self._word_freq.items():
-            if freq > self._min_count and word not in self._word2id:
+            if freq >= self._min_count and word not in self._word2id:
                 word_index += 1
                 self._word2id[word] = word_index
                 self._id2word[word_index] = word
         print('vocabulary size = {}'.format(len(self._word2id)))
 
 
-    def _generate_batch(self):
-        pass
+    def generate_batches(self, training_data_filepath):
+        """Generate all discretized batches in a single fileself.
+
+        One batch per line.
+        """
+        print('Generating batches from file {}'.format(training_data_filepath))
+        batches_filepath = '{}.batches'.format(training_data_filepath)
+        self._batches_filepath = batches_filepath
+        examples = []
+        with open(training_data_filepath, 'r') as training_data_stream:
+            with open(batches_filepath, 'w') as batches_stream:
+                for line in training_data_stream:
+                    for target_id, target in enumerate(line.strip().split()):
+                        for ctx_id, ctx in enumerate(line.strip().split()):
+                            if ctx_id == target_id or abs(ctx_id - target_id) > self._window_size:
+                                continue
+                            examples.append('{}#{}'.format(self._word2id[ctx],
+                                                           self._word2id[target]))
+                            if len(examples) == self._batch_size:
+                                print(' '.join(examples), file=batches_stream)
+                                self._num_batches += 1
+                                examples = []
+
 
     def train(self):
         with tf.Session(graph=self._graph) as session:
             self._init.run()  # Initialize all TF variables
             average_loss = 0
-            for step in six.moves.xrange(self._num_steps):
-                batch_inputs, batch_labels = self._generate_batch()
+            for batch_num in self._num_batches():
+                batch_inputs, batch_labels = self._get_batch(batch_num)
                 feed_dict = {self._train_inputs: batch_inputs,
                              self._train_labels: batch_labels}
                 # We perform one update step by evaluating the optimizer op
@@ -133,20 +153,14 @@ class Word2Vec():
                     [self._optimizer, self._merged, self._loss],
                     feed_dict=feed_dict)
                 average_loss += loss_val
-                if step % 2000 == 0:
-                    if step > 0:
-                        average_loss /= 2000
-                    # The average loss is an estimate of the loss over the last 2000 batches.
-                    print('Average loss at step ', step, ': ', average_loss)
-                    average_loss = 0
 
 
 if __name__ == '__main__':
     INPUT_FILE = '/Users/AKB/GitHub/nonce2vec/data/wikipedia/wiki.test'
     #INPUT_FILE = '/Users/AKB/GitHub/nonce2vec/data/wikipedia/wiki.all.utf8.sent.split.lower'
     w2v = Word2Vec(min_count=1, batch_size=128, embedding_size=128,
-                   num_neg_samples=64, learning_rate=1.0, window_size=15)
+                   num_neg_samples=64, learning_rate=1.0, window_size=3)
     w2v.build_vocab(INPUT_FILE)
-    w2v.preprocess(INPUT_FILE)
-    w2v.initialize_tf_graph()
+    w2v.generate_batches(INPUT_FILE)
+    #w2v.initialize_tf_graph()
     #w2v.train()
