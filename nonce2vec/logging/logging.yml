@@ -24,3 +24,6 @@ loggers:
   nonce2vec.models.nonce2vec:
     level: DEBUG
     handlers: [console]
+  nonce2vec.models.word2vec:
+    level: INFO
+    handlers: [console]
