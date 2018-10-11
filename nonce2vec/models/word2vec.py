@@ -5,7 +5,7 @@ from collections import defaultdict
 import logging
 
 import math
-import six
+import numpy as np
 import tensorflow as tf
 
 logger = logging.getLogger(__name__)
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class Word2Vec():
 
     def __init__(self, min_count, batch_size, embedding_size, num_neg_samples,
-                 learning_rate, window_size):
+                 learning_rate, window_size, num_epochs):
         self._word_freq = defaultdict(int)
         self._id2word = {}
         self._word2id = defaultdict(lambda: 0)
@@ -25,12 +25,15 @@ class Word2Vec():
         self._num_neg_samples = num_neg_samples
         self._learning_rate = learning_rate
         self._window_size = window_size
+        self._num_epochs = num_epochs
         self._loss = None
+        self._merged = None
         self._optimizer = None
         self._tf_init = None
         self._train_inputs = None
         self._train_labels = None
         self._num_batches = 0
+        self._graph = None
 
     @property
     def vocab_size(self):
@@ -43,8 +46,8 @@ class Word2Vec():
             raise Exception('You need to initialize the vocabulary with '
                             'build_vocab before initializing the Tensorflow '
                             'Graph')
-        graph = tf.Graph()
-        with graph.as_default():
+        self._graph = tf.Graph()
+        with self._graph.as_default():
             # Input data.
             with tf.name_scope('inputs'):
                 self._train_inputs = tf.placeholder(tf.int32,
@@ -57,8 +60,9 @@ class Word2Vec():
                 # Look up embeddings for inputs.
                 with tf.name_scope('embeddings'):
                     embeddings = tf.Variable(
-                        tf.random_uniform([self.vocab_size,
-                                           self._embedding_size], -1.0, 1.0))
+                        tf.random_uniform(shape=[self.vocab_size,
+                                                 self._embedding_size],
+                                          minval=-1.0, maxval=1.0))
                     embed = tf.nn.embedding_lookup(embeddings,
                                                    self._train_inputs)
             # Construct the variables for the NCE loss
@@ -83,10 +87,13 @@ class Word2Vec():
                         inputs=embed,
                         num_sampled=self._num_neg_samples,
                         num_classes=self.vocab_size))
+            # Add the loss value as a scalar to summary.
+            tf.summary.scalar('loss', self._loss)
             # Construct the SGD optimizer using a learning rate of 1.0.
             with tf.name_scope('optimizer'):
                 self._optimizer = tf.train.GradientDescentOptimizer(self._learning_rate).minimize(self._loss)
-        self._tf_init = tf.global_variables_initializer()
+            self._merged = tf.summary.merge_all()
+            self._tf_init = tf.global_variables_initializer()
         print('Done initializing Tensorflow Graph')
 
     def build_vocab(self, input_filepath):
@@ -110,7 +117,6 @@ class Word2Vec():
                 self._id2word[word_index] = word
         print('vocabulary size = {}'.format(len(self._word2id)))
 
-
     def generate_batches(self, training_data_filepath):
         """Generate all discretized batches in a single fileself.
 
@@ -127,40 +133,53 @@ class Word2Vec():
                         for ctx_id, ctx in enumerate(line.strip().split()):
                             if ctx_id == target_id or abs(ctx_id - target_id) > self._window_size:
                                 continue
-                            examples.append('{}#{}'.format(self._word2id[ctx],
-                                                           self._word2id[target]))
+                            examples.append('{}#{}'.format(self._word2id[target],
+                                                           self._word2id[ctx]))
                             if len(examples) == self._batch_size:
                                 print(' '.join(examples), file=batches_stream)
                                 self._num_batches += 1
                                 examples = []
 
+    def _get_batch(self, batch_line):
+        """Convert a stringified batch line to a valid batch."""
+        batch = np.ndarray(shape=(self._batch_size), dtype=np.int32)
+        labels = np.ndarray(shape=(self._batch_size, 1), dtype=np.int32)
+        for idx, item in enumerate(batch_line.strip().split()):
+            (ctx, target) = item.split('#')
+            batch[idx] = int(target)
+            labels[idx, 0] = int(ctx)
+        return batch, labels
 
     def train(self):
+        """Train over the data."""
         with tf.Session(graph=self._graph) as session:
-            self._init.run()  # Initialize all TF variables
+            self._tf_init.run(session=session)  # Initialize all TF variables
             average_loss = 0
-            for batch_num in self._num_batches():
-                batch_inputs, batch_labels = self._get_batch(batch_num)
-                feed_dict = {self._train_inputs: batch_inputs,
-                             self._train_labels: batch_labels}
-                # We perform one update step by evaluating the optimizer op
-                # (including it in the list of returned values for session.run()
-                # Also, evaluate the merged op to get all summaries from the
-                # returned "summary" variable.
-                # Feed metadata variable to session for visualizing the graph
-                # in TensorBoard.
-                _, summary, loss_val = session.run(
-                    [self._optimizer, self._merged, self._loss],
-                    feed_dict=feed_dict)
-                average_loss += loss_val
+            for epoch in range(1, self._num_epochs + 1):
+                print('epoch = {}'.format(epoch))
+                with open(self._batches_filepath, 'r') as batches_stream:
+                    for idx, batch_line in enumerate(batches_stream):
+                        progress_rate = round(((idx + 1) / self._num_batches) * 100, 1)
+                        # print('Epoch {}/{} | {}%'
+                        #       .format(epoch, self._num_epochs, progress_rate))
+                        batch_inputs, batch_labels = self._get_batch(batch_line)
+                        feed_dict = {self._train_inputs: batch_inputs,
+                                     self._train_labels: batch_labels}
+                        _, summary, loss_val = session.run(
+                            [self._optimizer, self._merged, self._loss],
+                            feed_dict=feed_dict)
+                        average_loss += loss_val
+                        #print('average loss = {}'.format(average_loss))
+
 
 
 if __name__ == '__main__':
     INPUT_FILE = '/Users/AKB/GitHub/nonce2vec/data/wikipedia/wiki.test'
     #INPUT_FILE = '/Users/AKB/GitHub/nonce2vec/data/wikipedia/wiki.all.utf8.sent.split.lower'
     w2v = Word2Vec(min_count=1, batch_size=128, embedding_size=128,
-                   num_neg_samples=64, learning_rate=1.0, window_size=3)
+                   num_neg_samples=64, learning_rate=1.0, window_size=3,
+                   num_epochs=5)
     w2v.build_vocab(INPUT_FILE)
     w2v.generate_batches(INPUT_FILE)
-    #w2v.initialize_tf_graph()
-    #w2v.train()
+    w2v.initialize_tf_graph()
+    w2v.train()
