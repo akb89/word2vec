@@ -44,7 +44,13 @@ def _train(args):
     else:
         w2v.generate_batches(args.datafile, batches_filepath)
     w2v.initialize_tf_graph()
-    w2v.train(batches_filepath)
+    output_model_filepath = futils.get_model_path(args.datafile, args.outputdir,
+                                                  args.train_mode,
+                                                  args.alpha, args.neg,
+                                                  args.window, args.sample,
+                                                  args.epochs,
+                                                  args.min_count, args.size)
+    w2v.train(batches_filepath, output_model_filepath)
 
 
 def main():

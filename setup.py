@@ -31,7 +31,7 @@ setup(
             'n2v = nonce2vec.main:main'
         ],
     },
-    install_requires=['PyYAML==3.12', 'gensim==3.4.0', 'scipy==0.19.0',
+    install_requires=['PyYAML==3.13', 'gensim==3.4.0', 'scipy==0.19.0',
                       'numpy==1.14.1', 'wikiextractor==3.0.3', 'spacy==2.0.12',
                       'en_core_web_sm==2.0.0', 'natsort==5.4.1',
                       'tensorflow==1.11.0'],
