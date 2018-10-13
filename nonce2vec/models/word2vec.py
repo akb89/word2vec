@@ -142,7 +142,7 @@ class Word2Vec():
         """Load a previously saved vocabulary file."""
         with open(vocab_filepath, 'r') as vocab_stream:
             for line in vocab_stream:
-                (idx, word) = line.strip().split('#')
+                (idx, word) = line.strip().split('#', 1)
                 self._word2id[word] = int(idx)
                 self._id2word[int(idx)] = word
 
