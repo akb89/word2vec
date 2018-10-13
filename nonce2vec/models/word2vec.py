@@ -192,6 +192,7 @@ class Word2Vec():
                                     .format(epoch, self._num_epochs,
                                             average_loss))
                         average_loss = 0
+                    step += 1
             logger.info('Completed training. Saving model to {}'
                         .format(os.path.join(model_dirpath, 'model')))
             with tf.summary.FileWriter(model_dirpath, session.graph) as writer:
