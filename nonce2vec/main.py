@@ -80,7 +80,7 @@ def _train(args):
                                                     args.window, args.sample,
                                                     args.epochs,
                                                     args.min_count, args.size)
-    if not args.vocab or not os.exists(args.vocab):
+    if not args.vocab or not os.path.exists(args.vocab):
         vocab_filepath = futils.get_vocab_filepath(output_model_dirpath,
                                                    args.min_count)
         w2v.build_vocab(args.datafile, vocab_filepath)
