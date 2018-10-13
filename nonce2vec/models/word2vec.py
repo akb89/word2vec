@@ -174,12 +174,16 @@ class Word2Vec():
         sess_config = tf.ConfigProto()
         sess_config.intra_op_parallelism_threads = self._num_threads
         sess_config.inter_op_parallelism_threads = self._num_threads
-        step = 1
+        batch_count = 0
         with tf.Session(graph=self._graph, config=sess_config) as session:
             self._tf_init.run(session=session)  # Initialize all TF variables
             average_loss = 0
             for epoch in range(1, self._num_epochs + 1):
+                step = 0
                 for batch_inputs, batch_labels in self._get_batches(training_data_filepath):
+                    step += 1
+                    if epoch == 1:
+                        batch_count += 1
                     feed_dict = {self._train_inputs: batch_inputs,
                                  self._train_labels: batch_labels}
                     _, summary, loss_val = session.run(
@@ -188,11 +192,16 @@ class Word2Vec():
                     average_loss += loss_val
                     if step % 10000 == 0:
                         average_loss /= 10000
-                        logger.info('Epoch {}/{} average loss = {}'
-                                    .format(epoch, self._num_epochs,
-                                            average_loss))
+                        if epoch == 1:
+                            logger.info('Epoch {}/{} average loss = {}'
+                                        .format(epoch, self._num_epochs,
+                                                average_loss))
+                        else:
+                            progress = (step / batch_count) * 100
+                            logger.info('Epoch {}/{} progress = {}% average loss = {}'
+                                        .format(epoch, self._num_epochs,
+                                                progress, average_loss))
                         average_loss = 0
-                    step += 1
             logger.info('Completed training. Saving model to {}'
                         .format(os.path.join(model_dirpath, 'model')))
             with tf.summary.FileWriter(model_dirpath, session.graph) as writer:
