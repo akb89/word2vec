@@ -151,8 +151,9 @@ class Word2Vec():
     def _get_dataset(self, training_data_filepath):
         def decode_line(line):
             examples = []
-            for target_id, target in enumerate(line.strip().split()):
-                for ctx_id, ctx in enumerate(line.strip().split()):
+            splitted_line = tf.strings.split(tf.strings.strip(line))
+            for target_id, target in enumerate(splitted_line):
+                for ctx_id, ctx in enumerate(splitted_line):
                     if ctx_id == target_id \
                         or abs(ctx_id - target_id) > self._window_size:
                         continue
