@@ -156,13 +156,27 @@ class Word2Vec():
                 self._word2id[word] = int(idx)
                 self._id2word[int(idx)] = word
 
+    def _get_lines(self, training_data_filepath):
+        lines = []
+        with open(training_data_filepath, 'r') as training_data_stream:
+            for line in training_data_stream:
+                lines.append(line.strip())
+                if len(lines) == 100000:
+                    yield lines
+                    lines = []
+        yield lines
+
+
     def _get_batches(self, training_data_filepath):
         """Return a generator over training batches."""
         batch = np.ndarray(shape=(self._batch_size), dtype=np.int32)
         labels = np.ndarray(shape=(self._batch_size, 1), dtype=np.int32)
         idx = 0
-        with open(training_data_filepath, 'r') as training_data_stream:
-            for line in training_data_stream:
+        # with open(training_data_filepath, 'r') as training_data_stream:
+        #     for line in training_data_stream:
+        for lines in self._get_lines(training_data_filepath):
+            self._timers['batches_generation'] = time.monotonic()
+            for line in lines:
                 for target_id, target in enumerate(line.strip().split()):
                     for ctx_id, ctx in enumerate(line.strip().split()):
                         if ctx_id == target_id or abs(ctx_id - target_id) > self._window_size:
@@ -185,7 +199,6 @@ class Word2Vec():
     def train(self, training_data_filepath, model_dirpath):
         """Train over the data."""
         logger.info('Starting training...')
-        self._timers['batches_generation'] = time.monotonic()
 
         sess_config = tf.ConfigProto()
         sess_config.intra_op_parallelism_threads = self._num_threads
