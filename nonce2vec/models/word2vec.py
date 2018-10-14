@@ -20,7 +20,7 @@ class Word2Vec():
 
     def __init__(self, min_count, batch_size, embedding_size, num_neg_samples,
                  learning_rate, window_size, num_epochs, subsampling_rate,
-                 num_threads, perform_shuffle = True, prefect_batches_size = 10):
+                 num_threads, perform_shuffle = False, prefect_batches_size = 10):
         self._id2word = {}
         self._word2id = defaultdict(lambda: 0)
         self._min_count = min_count
@@ -148,22 +148,31 @@ class Word2Vec():
                 self._word2id[word] = int(idx)
                 self._id2word[int(idx)] = word
 
-    def _get_dataset(self, training_data_filepath):
-        def decode_line(line):
-            examples = []
-            splitted_line = tf.strings.split(tf.strings.strip(line))
-            for target_id, target in enumerate(splitted_line):
-                for ctx_id, ctx in enumerate(splitted_line):
-                    if ctx_id == target_id \
-                        or abs(ctx_id - target_id) > self._window_size:
+    def _string_to_skip_gram(self, line):
+        def skip_gram(tokens):
+            token_ids = [self._word2id[w.decode('utf8')] for w in tokens]
+            features = []
+            labels = []
+            for target_id, target in enumerate(token_ids):
+                for ctx_id, ctx in enumerate(token_ids):
+                    if ctx_id == target_id or abs(ctx_id - target_id) > self._window_size:
                         continue
-                    examples.append((target, ctx))
-            return examples
+                    features.append(target)
+                    labels.append(ctx)
+            return features, labels
 
+        def handle_line(line):
+            tokens = line.strip().split()
+            features, labels = skip_gram(tokens)
+            return np.array([features, labels], dtype=np.int64)
+        res = tf.py_func(handle_line, [line], tf.int64)
+        features = res[0]
+        labels = res[1]
+        return tf.data.Dataset.from_tensor_slices((features, labels))
+
+    def _get_dataset(self, training_data_filepath):
         """Return a generator over training batches."""
-        dataset = (tf.data.TextLineDataset(training_data_filepath)
-            .map(decode_line))
-        )
+        dataset = tf.data.TextLineDataset(training_data_filepath).flat_map(self._string_to_skip_gram)
         if self._perform_shuffle:
             dataset = dataset.shuffle(buffer_size=256)
         dataset = dataset.batch(self._batch_size)
@@ -179,39 +188,44 @@ class Word2Vec():
         sess_config.intra_op_parallelism_threads = self._num_threads
         sess_config.inter_op_parallelism_threads = self._num_threads
 
-        dataset = self._get_dataset(training_data_filepath)
-        batches_iterator = dataset.make_initializable_iterator()
-        init_op = batches_iterator.initializer
-
         batch_count = 0
         with tf.Session(graph=self._graph, config=sess_config) as session:
+            dataset = self._get_dataset(training_data_filepath)
+            batches_iterator = dataset.make_initializable_iterator()
+            init_op = batches_iterator.initializer
+            batch_inputs, batch_labels = batches_iterator.get_next()
+            batch_labels = tf.reshape(batch_labels, [tf.size(batch_labels),1])
             self._tf_init.run(session=session)  # Initialize all TF variables
+
             average_loss = 0
             for epoch in range(1, self._num_epochs + 1):
                 step = 0
                 session.run(init_op)
-                for batch_inputs, batch_labels in batches_iterator:
-                    step += 1
-                    if epoch == 1:
-                        batch_count += 1
-                    feed_dict = {self._train_inputs: batch_inputs,
-                                 self._train_labels: batch_labels}
-                    _, summary, loss_val = session.run(
-                        [self._optimizer, self._merged, self._loss],
-                        feed_dict=feed_dict)
-                    average_loss += loss_val
-                    if step % 1000 == 0:
-                        average_loss /= 1000
+                while True:
+                    try:
+                        step += 1
                         if epoch == 1:
-                            logger.info('Epoch {}/{} average loss = {}'
-                                        .format(epoch, self._num_epochs,
-                                                average_loss))
-                        else:
-                            progress = (step / batch_count) * 100
-                            logger.info('Epoch {}/{} progress = {}% average loss = {}'
-                                        .format(epoch, self._num_epochs,
-                                                progress, average_loss))
-                        average_loss = 0
+                            batch_count += 1
+                        feed_dict = {self._train_inputs: batch_inputs.eval(),
+                                     self._train_labels: batch_labels.eval()}
+                        _, summary, loss_val = session.run(
+                            [self._optimizer, self._merged, self._loss],
+                            feed_dict=feed_dict)
+                        average_loss += loss_val
+                        if step % 1000 == 0:
+                            average_loss /= 1000
+                            if epoch == 1:
+                                logger.info('Epoch {}/{} average loss = {}'
+                                            .format(epoch, self._num_epochs,
+                                                    average_loss))
+                            else:
+                                progress = (step / batch_count) * 100
+                                logger.info('Epoch {}/{} progress = {}% average loss = {}'
+                                            .format(epoch, self._num_epochs,
+                                                    progress, average_loss))
+                            average_loss = 0
+                    except tf.errors.OutOfRangeError:
+                        break #End of epoch
             logger.info('Completed training. Saving model to {}'
                         .format(os.path.join(model_dirpath, 'model')))
             with tf.summary.FileWriter(model_dirpath, session.graph) as writer:
