@@ -5,7 +5,6 @@ import os
 from collections import defaultdict
 
 import logging
-import time
 
 import math
 import numpy as np
@@ -21,7 +20,7 @@ class Word2Vec():
 
     def __init__(self, min_count, batch_size, embedding_size, num_neg_samples,
                  learning_rate, window_size, num_epochs, subsampling_rate,
-                 num_threads):
+                 num_threads, perform_shuffle = True, prefect_batches_size = 10):
         self._id2word = {}
         self._word2id = defaultdict(lambda: 0)
         self._min_count = min_count
@@ -43,17 +42,8 @@ class Word2Vec():
         self._train_labels = None
         self._graph = None
         self._saver = None
-        self._timers = {
-            'batches_generation': None,
-            'training': None,
-            'lines_reading': None,
-        }
-
-        self._timings = {
-            'batches_generation': 0.,
-            'training': 0.,
-            'lines_reading': 0.
-        }
+        self._perform_shuffle = perform_shuffle
+        self._prefetch_batches_size = prefect_batches_size
 
     @property
     def normalized_embeddings(self):
@@ -158,49 +148,27 @@ class Word2Vec():
                 self._word2id[word] = int(idx)
                 self._id2word[int(idx)] = word
 
-    def _get_lines(self, training_data_filepath):
-        lines = []
-        self._timers['lines_reading'] = time.monotonic()
-        with open(training_data_filepath, 'r') as training_data_stream:
-            for line in training_data_stream:
-                lines.append(line.strip())
-                if len(lines) == 100000:
-                    logger.info('Lines reading time: {}s'.format(time.monotonic() - self._timers['lines_reading']))
-                    yield lines
-                    lines = []
-        logger.info('Lines reading time: {}s'.format(time.monotonic() - self._timers['lines_reading']))
-        self._timers['lines_reading'] = time.monotonic()
-        yield lines
+    def _get_dataset(self, training_data_filepath):
+        def decode_line(line):
+            examples = []
+            for target_id, target in enumerate(line.strip().split()):
+                for ctx_id, ctx in enumerate(line.strip().split()):
+                    if ctx_id == target_id \
+                        or abs(ctx_id - target_id) > self._window_size:
+                        continue
+                    examples.append((target, ctx))
+            return examples
 
-
-    def _get_batches(self, training_data_filepath):
         """Return a generator over training batches."""
-        batch = np.ndarray(shape=(self._batch_size), dtype=np.int32)
-        labels = np.ndarray(shape=(self._batch_size, 1), dtype=np.int32)
-        idx = 0
-        # with open(training_data_filepath, 'r') as training_data_stream:
-        #     for line in training_data_stream:
-        for lines in self._get_lines(training_data_filepath):
-            self._timers['batches_generation'] = time.monotonic()
-            for line in lines:
-                for target_id, target in enumerate(line.strip().split()):
-                    for ctx_id, ctx in enumerate(line.strip().split()):
-                        if ctx_id == target_id or abs(ctx_id - target_id) > self._window_size:
-                            continue
-                        batch[idx] = self._word2id[target]
-                        labels[idx, 0] = self._word2id[ctx]
-                        idx += 1
-                        if idx == self._batch_size:
-                            self._timings['batches_generation'] += \
-                                time.monotonic() - self._timers['batches_generation']
-                            self._timers['batches_generation'] = time.monotonic()
-                            yield batch, labels
-                            idx = 0
-                            batch = np.ndarray(shape=(self._batch_size),
-                                               dtype=np.int32)
-                            labels = np.ndarray(shape=(self._batch_size, 1),
-                                                dtype=np.int32)
-            self._timers['lines_reading'] = time.monotonic()
+        dataset = (tf.data.TextLineDataset(training_data_filepath)
+            .map(decode_line))
+        )
+        if self._perform_shuffle:
+            dataset = dataset.shuffle(buffer_size=256)
+        dataset = dataset.batch(self._batch_size)
+        dataset = dataset.prefetch(self._prefetch_batches_size)
+        return dataset
+
 
     def train(self, training_data_filepath, model_dirpath):
         """Train over the data."""
@@ -209,26 +177,28 @@ class Word2Vec():
         sess_config = tf.ConfigProto()
         sess_config.intra_op_parallelism_threads = self._num_threads
         sess_config.inter_op_parallelism_threads = self._num_threads
+
+        dataset = self._get_dataset(training_data_filepath)
+        batches_iterator = dataset.make_initializable_iterator()
+        init_op = batches_iterator.initializer
+
         batch_count = 0
         with tf.Session(graph=self._graph, config=sess_config) as session:
             self._tf_init.run(session=session)  # Initialize all TF variables
             average_loss = 0
             for epoch in range(1, self._num_epochs + 1):
                 step = 0
-                for batch_inputs, batch_labels in self._get_batches(training_data_filepath):
+                session.run(init_op)
+                for batch_inputs, batch_labels in batches_iterator:
                     step += 1
                     if epoch == 1:
                         batch_count += 1
-
-                    self._timers['training'] = time.monotonic()
                     feed_dict = {self._train_inputs: batch_inputs,
                                  self._train_labels: batch_labels}
                     _, summary, loss_val = session.run(
                         [self._optimizer, self._merged, self._loss],
                         feed_dict=feed_dict)
                     average_loss += loss_val
-                    self._timings['training'] += time.monotonic() - self._timers['training']
-
                     if step % 1000 == 0:
                         average_loss /= 1000
                         if epoch == 1:
@@ -240,10 +210,6 @@ class Word2Vec():
                             logger.info('Epoch {}/{} progress = {}% average loss = {}'
                                         .format(epoch, self._num_epochs,
                                                 progress, average_loss))
-                        logger.info('Batches generation time: {}s'.format(self._timings['batches_generation']))
-                        logger.info('Training time: {}s'.format(self._timings['training']))
-                        self._timings['batches_generation'] = 0.
-                        self._timings['training'] = 0.
                         average_loss = 0
             logger.info('Completed training. Saving model to {}'
                         .format(os.path.join(model_dirpath, 'model')))
