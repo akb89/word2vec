@@ -166,7 +166,6 @@ class Word2Vec():
                 lines.append(line.strip())
                 if len(lines) == 100000:
                     logger.info('Lines reading time: {}s'.format(time.monotonic() - self._timers['lines_reading']))
-                    self._timers['lines_reading'] = time.monotonic()
                     yield lines
                     lines = []
         logger.info('Lines reading time: {}s'.format(time.monotonic() - self._timers['lines_reading']))
@@ -201,6 +200,7 @@ class Word2Vec():
                                                dtype=np.int32)
                             labels = np.ndarray(shape=(self._batch_size, 1),
                                                 dtype=np.int32)
+            self._timers['lines_reading'] = time.monotonic()
 
     def train(self, training_data_filepath, model_dirpath):
         """Train over the data."""
