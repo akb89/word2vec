@@ -45,12 +45,14 @@ class Word2Vec():
         self._saver = None
         self._timers = {
             'batches_generation': None,
-            'training': None
+            'training': None,
+            'lines_reading': None,
         }
 
         self._timings = {
             'batches_generation': 0.,
-            'training': 0.
+            'training': 0.,
+            'lines_reading': 0.
         }
 
     @property
@@ -158,12 +160,17 @@ class Word2Vec():
 
     def _get_lines(self, training_data_filepath):
         lines = []
+        self._timers['lines_reading'] = time.monotonic()
         with open(training_data_filepath, 'r') as training_data_stream:
             for line in training_data_stream:
                 lines.append(line.strip())
                 if len(lines) == 100000:
+                    logger.info('Lines reading time: {}s'.format(time.monotonic() - self._timers['lines_reading']))
+                    self._timers['lines_reading'] = time.monotonic()
                     yield lines
                     lines = []
+        logger.info('Lines reading time: {}s'.format(time.monotonic() - self._timers['lines_reading']))
+        self._timers['lines_reading'] = time.monotonic()
         yield lines
 
 
@@ -185,11 +192,10 @@ class Word2Vec():
                         labels[idx, 0] = self._word2id[ctx]
                         idx += 1
                         if idx == self._batch_size:
-                            yield batch, labels
                             self._timings['batches_generation'] += \
                                 time.monotonic() - self._timers['batches_generation']
                             self._timers['batches_generation'] = time.monotonic()
-
+                            yield batch, labels
                             idx = 0
                             batch = np.ndarray(shape=(self._batch_size),
                                                dtype=np.int32)
