@@ -2,12 +2,11 @@
 
 import os
 
-from collections import defaultdict
-
 import logging
 
 import math
 import tensorflow as tf
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +22,7 @@ def skipgram(features, labels, mode, params):
     """Return Word2Vec Skipgram model."""
     # train_inputs = tf.placeholder(tf.int32, shape=[params['batch_size']])
     # train_labels = tf.placeholder(tf.int32, shape=[params['batch_size'], 1])
+    # Should I reshape the labels?
     embeddings = tf.Variable(tf.random_uniform(
         shape=[params['vocab_size'], params['embedding_size']], minval=-1.0,
         maxval=1.0))
@@ -45,13 +45,17 @@ class Word2Vec():
     """Tensorflow implementation of Word2vec."""
 
     def __init__(self, train_mode, model_dirpath, embedding_size,
-                 num_neg_samples, learning_rate, vocab_filepath):
-        if not vocab_filepath:
-            # build vocab
-            pass
+                 num_neg_samples, learning_rate, vocab_filepath,
+                 data_filepath=None):
+        if not os.path.exists(vocab_filepath):
+            if not data_filepath:
+                raise Exception(
+                    'Unspecified data_filepath. You need to specify the data '
+                    'file from which to build the vocabulary, or to specify a '
+                    'valid vocabulary filepath')
+            self._build_vocab(data_filepath, vocab_filepath)
         else:
-            # load vocab
-            pass
+            self._load_vocab(vocab_filepath)
         if train_mode != 'cbow' or train_mode != 'skipgram':
             raise Exception('Unsupported train_mode \'{}\''.format(train_mode))
         if train_mode == 'cbow':
@@ -67,13 +71,34 @@ class Word2Vec():
                     'learning_rate': learning_rate,
                 })
 
-    def _get_dataset(self, training_data_filepath):
-        dataset = tf.data.TextLineDataset(training_data_filepath).flat_map(self._string_to_skip_gram)
-        if self._perform_shuffle:
-            dataset = dataset.shuffle(buffer_size=256)
-        dataset = dataset.batch(self._batch_size)
-        dataset = dataset.prefetch(self._prefetch_batches_size)
-        return dataset
+    def _generate_dataset(self, training_data_filepath):
+        def extract_skipgram_ex(line):
+            def process_line(line):
+                features = []
+                labels = []
+                tokens = line.strip().split()
+                for target_id, target in enumerate(tokens):
+                    for ctx_id, ctx in enumerate(tokens):
+                        if ctx_id == target_id or abs(ctx_id - target_id) > self._window_size:
+                            continue
+                        features.append(self._word2id[target.decode('utf8')])
+                        labels.append(self._word2id[ctx.decode('utf8')])
+                return np.array([features, labels], dtype=np.int32)
+            return tf.py_func(process_line, [line], tf.int32)
+        return (tf.data.TextLineDataset(training_data_filepath)
+                .map(extract_skipgram_ex, num_parallel_calls=self._num_threads)
+                .prefetch(self._buffer_size)
+                .flat_map(lambda x: tf.data.Dataset.from_tensor_slices((x[0], x[1])))
+                .shuffle(buffer_size=self._shuffling_buffer_size,
+                         reshuffle_each_iteration=False)
+                .repeat(self._num_epochs)
+                .batch(self._batch_size)
+                .prefetch(self._prefetch_batch_size))
 
     def train(self, training_data_filepath):
-        self._estimator.train(input_fn=self._get_dataset(training_data_filepath))
+        """Train Word2Vec."""
+        self._estimator.train(input_fn=self._generate_dataset(training_data_filepath))
+
+    def predict(self):
+        """Predict."""
+        pass

@@ -20,7 +20,8 @@ class Word2Vec():
 
     def __init__(self, min_count, batch_size, embedding_size, num_neg_samples,
                  learning_rate, window_size, num_epochs, subsampling_rate,
-                 num_threads, perform_shuffle = False, prefect_batches_size = 10):
+                 num_threads, shuffling_buffer_size=100,
+                 prefetch_batch_size=10, buffer_size=10):
         self._id2word = {}
         self._word2id = defaultdict(lambda: 0)
         self._min_count = min_count
@@ -42,8 +43,9 @@ class Word2Vec():
         self._train_labels = None
         self._graph = None
         self._saver = None
-        self._perform_shuffle = perform_shuffle
-        self._prefetch_batches_size = prefect_batches_size
+        self._shuffling_buffer_size = shuffling_buffer_size
+        self._prefetch_batch_size = prefetch_batch_size
+        self._buffer_size = buffer_size
 
     @property
     def normalized_embeddings(self):
@@ -113,17 +115,12 @@ class Word2Vec():
             self._saver = tf.train.Saver()
         logger.info('Done initializing Tensorflow Graph')
 
-    def build_vocab(self, input_filepath, output_filepath):
-        """Create vocabulary-related data.
-
-        For now assume a single file is given in input and process everything
-        at once. Todo; add support for multiple files and also for processing
-        as single file with multiple threads.
-        """
-        logger.info('Building vocabulary from file {}'.format(input_filepath))
+    def build_vocab(self, data_filepath, vocab_filepath):
+        """Create vocabulary-related data."""
+        logger.info('Building vocabulary from file {}'.format(data_filepath))
         word_freq_dict = defaultdict(int)
-        with open(input_filepath, 'r') as input_file_stream:
-            for line in input_file_stream:
+        with open(data_filepath, 'r') as data_stream:
+            for line in data_stream:
                 for word in line.strip().split():
                     word_freq_dict[word] += 1
         word_index = 0
@@ -135,10 +132,10 @@ class Word2Vec():
                 self._word2id[word] = word_index
                 self._id2word[word_index] = word
         logger.info('Vocabulary size = {}'.format(len(self._word2id)))
-        logger.info('Saving vocabulary to file {}'.format(output_filepath))
-        with open(output_filepath, 'w', encoding='utf-8') as output_stream:
+        logger.info('Saving vocabulary to file {}'.format(vocab_filepath))
+        with open(vocab_filepath, 'w', encoding='utf-8') as vocab_stream:
             for idx, word in self._id2word.items():
-                print('{}#{}'.format(idx, word), file=output_stream)
+                print('{}#{}'.format(idx, word), file=vocab_stream)
 
     def load_vocab(self, vocab_filepath):
         """Load a previously saved vocabulary file."""
@@ -148,36 +145,31 @@ class Word2Vec():
                 self._word2id[word] = int(idx)
                 self._id2word[int(idx)] = word
 
-    def _string_to_skip_gram(self, line):
-        def skip_gram(tokens):
-            token_ids = [self._word2id[w.decode('utf8')] for w in tokens]
-            features = []
-            labels = []
-            for target_id, target in enumerate(token_ids):
-                for ctx_id, ctx in enumerate(token_ids):
-                    if ctx_id == target_id or abs(ctx_id - target_id) > self._window_size:
-                        continue
-                    features.append(target)
-                    labels.append(ctx)
-            return features, labels
-
-        def handle_line(line):
-            tokens = line.strip().split()
-            features, labels = skip_gram(tokens)
-            return np.array([features, labels], dtype=np.int64)
-        res = tf.py_func(handle_line, [line], tf.int64)
-        features = res[0]
-        labels = res[1]
-        return tf.data.Dataset.from_tensor_slices((features, labels))
-
     def _get_dataset(self, training_data_filepath):
-        """Return a generator over training batches."""
-        dataset = tf.data.TextLineDataset(training_data_filepath).flat_map(self._string_to_skip_gram)
-        if self._perform_shuffle:
-            dataset = dataset.shuffle(buffer_size=256)
-        dataset = dataset.batch(self._batch_size)
-        dataset = dataset.prefetch(self._prefetch_batches_size)
-        return dataset
+        def extract_skipgram_ex(line):
+            def process_line(line):
+                features = []
+                labels = []
+                tokens = line.strip().split()
+                for target_id, target in enumerate(tokens):
+                    for ctx_id, ctx in enumerate(tokens):
+                        if ctx_id == target_id or abs(ctx_id - target_id) > self._window_size:
+                            continue
+                        features.append(self._word2id[target.decode('utf8')])
+                        labels.append(self._word2id[ctx.decode('utf8')])
+                return np.array([features, labels], dtype=np.int32)
+                # return tf.stack([tf.convert_to_tensor(features, tf.int32),
+                #                  tf.convert_to_tensor(labels, tf.int32)])
+            return tf.py_func(process_line, [line], tf.int32)
+        return (tf.data.TextLineDataset(training_data_filepath)
+                .map(extract_skipgram_ex, num_parallel_calls=self._num_threads)
+                .prefetch(self._buffer_size)
+                .flat_map(lambda x: tf.data.Dataset.from_tensor_slices((x[0], x[1])))
+                .shuffle(buffer_size=self._shuffling_buffer_size,
+                         reshuffle_each_iteration=False)
+                .repeat(self._num_epochs)
+                .batch(self._batch_size)
+                .prefetch(self._prefetch_batch_size))
 
 
     def train(self, training_data_filepath, model_dirpath):
@@ -194,7 +186,8 @@ class Word2Vec():
             batches_iterator = dataset.make_initializable_iterator()
             init_op = batches_iterator.initializer
             batch_inputs, batch_labels = batches_iterator.get_next()
-            batch_labels = tf.reshape(batch_labels, [tf.size(batch_labels),1])
+            #batch_labels = tf.reshape(batch_labels, [tf.size(batch_labels),1])
+            batch_labels = tf.reshape(batch_labels, [-1, 1])
             self._tf_init.run(session=session)  # Initialize all TF variables
 
             average_loss = 0
