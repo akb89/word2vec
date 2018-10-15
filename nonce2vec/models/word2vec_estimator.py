@@ -44,8 +44,11 @@ def skipgram(features, labels, mode, params):
 class Word2Vec():
     """Tensorflow implementation of Word2vec."""
 
-    def __init__(self, train_mode, model_dirpath, embedding_size,
-                 num_neg_samples, learning_rate, vocab_filepath,
+    def __init__(self, train_mode, min_count, batch_size, embedding_size,
+                 num_neg_samples, learning_rate, window_size, num_epochs,
+                 subsampling_rate, num_threads, vocab_filepath,
+                 model_dirpath, shuffling_buffer_size=100,
+                 prefetch_batch_size=10, buffer_size=10000,
                  data_filepath=None):
         if not os.path.exists(vocab_filepath):
             if not data_filepath:
@@ -97,7 +100,8 @@ class Word2Vec():
 
     def train(self, training_data_filepath):
         """Train Word2Vec."""
-        self._estimator.train(input_fn=self._generate_dataset(training_data_filepath))
+        self._estimator.train(
+            input_fn=self._generate_dataset(training_data_filepath))
 
     def predict(self):
         """Predict."""
