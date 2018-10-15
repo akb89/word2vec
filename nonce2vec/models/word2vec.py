@@ -21,7 +21,7 @@ class Word2Vec():
     def __init__(self, min_count, batch_size, embedding_size, num_neg_samples,
                  learning_rate, window_size, num_epochs, subsampling_rate,
                  num_threads, shuffling_buffer_size=100,
-                 prefetch_batch_size=1, buffer_size=10000):
+                 prefetch_batch_size=1000, buffer_size=100000):
         self._id2word = {}
         self._word2id = defaultdict(lambda: 0)
         self._min_count = min_count
