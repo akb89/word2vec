@@ -181,8 +181,8 @@ class Word2Vec():
         logger.info('Starting training...')
 
         sess_config = tf.ConfigProto()
-        sess_config.intra_op_parallelism_threads = self._num_threads
-        sess_config.inter_op_parallelism_threads = self._num_threads
+        #sess_config.intra_op_parallelism_threads = self._num_threads
+        #sess_config.inter_op_parallelism_threads = self._num_threads
 
         batch_count = 0
         with tf.Session(graph=self._graph, config=sess_config) as session:
