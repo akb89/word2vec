@@ -21,7 +21,7 @@ class Word2Vec():
     def __init__(self, min_count, batch_size, embedding_size, num_neg_samples,
                  learning_rate, window_size, num_epochs, subsampling_rate,
                  num_threads, shuffling_buffer_size=100,
-                 prefetch_batch_size=10000, buffer_size=10000):
+                 prefetch_batch_size=1, buffer_size=10000):
         self._id2word = {}
         self._word2id = defaultdict(lambda: 0)
         self._min_count = min_count
@@ -201,10 +201,10 @@ class Word2Vec():
                             batch_count += 1
                         feed_dict = {self._train_inputs: batch_inputs.eval(),
                                      self._train_labels: batch_labels.eval()}
-                        _, summary, loss_val = session.run(
-                            [self._optimizer, self._merged, self._loss],
-                            feed_dict=feed_dict)
-                        average_loss += loss_val
+                        # _, summary, loss_val = session.run(
+                        #     [self._optimizer, self._merged, self._loss],
+                        #     feed_dict=feed_dict)
+                        # average_loss += loss_val
                         if step % 1000 == 0:
                             average_loss /= 1000
                             if epoch == 1:
