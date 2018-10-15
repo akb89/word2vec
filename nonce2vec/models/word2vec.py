@@ -166,7 +166,7 @@ class Word2Vec():
             #return tf.data.Dataset.from_tensor_slices((res[0], res[1]))
         return (tf.data.TextLineDataset(training_data_filepath)
                 #.map(extract_skipgram_ex, num_parallel_calls=self._num_threads)
-                .map(extract_skipgram_ex, num_parallel_calls=2)
+                .map(extract_skipgram_ex)
                 .prefetch(self._buffer_size)
                 .flat_map(lambda x: tf.data.Dataset.from_tensor_slices((x[0], x[1])))
                 #.flat_map(lambda x: x)
