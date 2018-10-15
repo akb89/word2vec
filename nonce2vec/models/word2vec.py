@@ -162,14 +162,10 @@ class Word2Vec():
                 # return tf.stack([tf.convert_to_tensor(features, tf.int32),
                 #                  tf.convert_to_tensor(labels, tf.int32)])
             return tf.py_func(process_line, [line], tf.int32)
-            #res = tf.py_func(process_line, [line], tf.int32)
-            #return tf.data.Dataset.from_tensor_slices((res[0], res[1]))
         return (tf.data.TextLineDataset(training_data_filepath)
                 .map(extract_skipgram_ex, num_parallel_calls=self._num_threads)
-                #.map(extract_skipgram_ex)
                 .prefetch(self._buffer_size)
                 .flat_map(lambda x: tf.data.Dataset.from_tensor_slices((x[0], x[1])))
-                #.flat_map(lambda x: x)
                 .shuffle(buffer_size=self._shuffling_buffer_size,
                          reshuffle_each_iteration=False)
                 .repeat(self._num_epochs)
@@ -182,8 +178,8 @@ class Word2Vec():
         logger.info('Starting training...')
 
         sess_config = tf.ConfigProto()
-        #sess_config.intra_op_parallelism_threads = self._num_threads
-        #sess_config.inter_op_parallelism_threads = self._num_threads
+        sess_config.intra_op_parallelism_threads = self._num_threads
+        sess_config.inter_op_parallelism_threads = self._num_threads
 
         batch_count = 0
         with tf.Session(graph=self._graph, config=sess_config) as session:
@@ -206,10 +202,10 @@ class Word2Vec():
                             batch_count += 1
                         feed_dict = {self._train_inputs: batch_inputs.eval(),
                                      self._train_labels: batch_labels.eval()}
-                        # _, summary, loss_val = session.run(
-                        #     [self._optimizer, self._merged, self._loss],
-                        #     feed_dict=feed_dict)
-                        # average_loss += loss_val
+                        _, summary, loss_val = session.run(
+                            [self._optimizer, self._merged, self._loss],
+                            feed_dict=feed_dict)
+                        average_loss += loss_val
                         if step % 1000 == 0:
                             average_loss /= 1000
                             if epoch == 1:
