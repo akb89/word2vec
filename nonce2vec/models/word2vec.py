@@ -32,6 +32,7 @@ class Word2Vec():
         self._window_size = window_size
         self._num_epochs = num_epochs
         self._num_threads = num_threads
+        print(self._num_threads)
         self._subsampling_rate = subsampling_rate
         self._loss = None
         self._merged = None
@@ -160,11 +161,14 @@ class Word2Vec():
                 return np.array([features, labels], dtype=np.int32)
                 # return tf.stack([tf.convert_to_tensor(features, tf.int32),
                 #                  tf.convert_to_tensor(labels, tf.int32)])
-            return tf.py_func(process_line, [line], tf.int32)
+            #return tf.py_func(process_line, [line], tf.int32)
+            res = tf.py_func(process_line, [line], tf.int32)
+            return tf.data.Dataset.from_tensor_slices((res[0], res[1]))
         return (tf.data.TextLineDataset(training_data_filepath)
                 .map(extract_skipgram_ex, num_parallel_calls=self._num_threads)
                 .prefetch(self._buffer_size)
-                .flat_map(lambda x: tf.data.Dataset.from_tensor_slices((x[0], x[1])))
+                #.flat_map(lambda x: tf.data.Dataset.from_tensor_slices((x[0], x[1])))
+                .flat_map(lambda x: x)
                 .shuffle(buffer_size=self._shuffling_buffer_size,
                          reshuffle_each_iteration=False)
                 .repeat(self._num_epochs)
