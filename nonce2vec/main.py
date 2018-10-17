@@ -12,7 +12,8 @@ import logging.config
 import scipy
 import tensorflow as tf
 
-from nonce2vec.models.word2vec import Word2Vec
+#from nonce2vec.models.word2vec import Word2Vec
+from nonce2vec.models.word2vec_estimator import Word2Vec
 
 import nonce2vec.utils.config as cutils
 import nonce2vec.utils.files as futils
@@ -67,6 +68,33 @@ def _check_men(args):
     # logger.info('SPEARMAN: {} calculated over {} items'.format(spr, count))
 
 def _train(args):
+    logger.info('Training Tensorflow implementation of Word2Vec')
+    w2v = Word2Vec()
+    output_model_dirpath = futils.get_model_dirpath(args.datafile,
+                                                    args.outputdir,
+                                                    args.train_mode,
+                                                    args.alpha, args.neg,
+                                                    args.window, args.sample,
+                                                    args.epochs,
+                                                    args.min_count, args.size)
+    if not args.vocab or not os.path.exists(args.vocab):
+        if not args.datafile:
+            raise Exception(
+                'Unspecified data_filepath. You need to specify the data '
+                'file from which to build the vocabulary, or to specify a '
+                'valid vocabulary filepath')
+        vocab_filepath = futils.get_vocab_filepath(output_model_dirpath,
+                                                   args.min_count)
+        w2v.build_vocab(args.datafile, vocab_filepath, args.min_count)
+    else:
+        w2v.load_vocab(args.vocab)
+    w2v.train(args.train_mode, args.datafile, output_model_dirpath,
+              args.batch, args.size, args.neg, args.alpha, args.window,
+              args.epochs, args.sample, args.num_threads)
+    w2v.evaluate()
+
+
+def __train(args):
     logger.info('Training Tensorflow implementation of Word2Vec')
     w2v = Word2Vec(min_count=args.min_count, batch_size=args.batch,
                    embedding_size=args.size, num_neg_samples=args.neg,

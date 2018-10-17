@@ -32,7 +32,6 @@ class Word2Vec():
         self._window_size = window_size
         self._num_epochs = num_epochs
         self._num_threads = num_threads
-        print(self._num_threads)
         self._subsampling_rate = subsampling_rate
         self._loss = None
         self._merged = None
@@ -192,34 +191,23 @@ class Word2Vec():
             self._tf_init.run(session=session)  # Initialize all TF variables
 
             average_loss = 0
-            for epoch in range(1, self._num_epochs + 1):
-                step = 0
-                session.run(init_op)
-                while True:
-                    try:
-                        step += 1
-                        if epoch == 1:
-                            batch_count += 1
-                        feed_dict = {self._train_inputs: batch_inputs.eval(),
-                                     self._train_labels: batch_labels.eval()}
-                        _, summary, loss_val = session.run(
-                            [self._optimizer, self._merged, self._loss],
-                            feed_dict=feed_dict)
-                        average_loss += loss_val
-                        if step % 1000 == 0:
-                            average_loss /= 1000
-                            if epoch == 1:
-                                logger.info('Epoch {}/{} average loss = {}'
-                                            .format(epoch, self._num_epochs,
-                                                    average_loss))
-                            else:
-                                progress = (step / batch_count) * 100
-                                logger.info('Epoch {}/{} progress = {}% average loss = {}'
-                                            .format(epoch, self._num_epochs,
-                                                    progress, average_loss))
-                            average_loss = 0
-                    except tf.errors.OutOfRangeError:
-                        break #End of epoch
+            step = 0
+            session.run(init_op)
+            while True:
+                try:
+                    step += 1
+                    feed_dict = {self._train_inputs: batch_inputs.eval(),
+                                 self._train_labels: batch_labels.eval()}
+                    _, summary, loss_val = session.run(
+                        [self._optimizer, self._merged, self._loss],
+                        feed_dict=feed_dict)
+                    average_loss += loss_val
+                    if step % 1000 == 0:
+                        average_loss /= 1000
+                        logger.info('Average loss = {}'.format(average_loss))
+                        average_loss = 0
+                except tf.errors.OutOfRangeError:
+                    break #End of epoch
             logger.info('Completed training. Saving model to {}'
                         .format(os.path.join(model_dirpath, 'model')))
             with tf.summary.FileWriter(model_dirpath, session.graph) as writer:
