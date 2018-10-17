@@ -59,12 +59,9 @@ def skipgram(features, labels, mode, params):
         first_men_labels = tf.convert_to_tensor(first_men_labels)
         second_men_labels = tf.convert_to_tensor(second_men_labels)
         men_sim_labels = tf.convert_to_tensor(men_sim_labels)
-        print(men_sim_labels)
     first_men_embeddings = tf.nn.embedding_lookup(embeddings, first_men_labels)
-    print(first_men_embeddings)
     second_men_embeddings = tf.nn.embedding_lookup(embeddings, second_men_labels)
     men_sim_predictions = tf.losses.cosine_distance(first_men_embeddings, second_men_embeddings, axis=1, reduction=tf.losses.Reduction.NONE)
-    print(men_sim_predictions)
     men_correlation = tf.contrib.metrics.streaming_pearson_correlation(men_sim_predictions, men_sim_labels)
     metrics = {'MEN': men_correlation}
     tf.summary.scalar('MEN', men_correlation[1])
@@ -120,7 +117,7 @@ class Word2Vec():
     def _generate_train_dataset(self, training_data_filepath, window_size,
                                 batch_size, num_epochs, num_threads,
                                 shuffling_buffer_size=100,
-                                prefetch_batch_size=10, buffer_size=10000):
+                                prefetch_batch_size=1000, buffer_size=10000):
         def extract_skipgram_ex(line):
             def process_line(line):
                 features = []
