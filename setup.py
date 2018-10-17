@@ -24,7 +24,7 @@ setup(
     platforms=['any'],
     packages=['nonce2vec', 'nonce2vec.utils', 'nonce2vec.models',
               'nonce2vec.exceptions', 'nonce2vec.logging'],
-    package_data={'nonce2vec': ['logging/*.yml']},
+    package_data={'nonce2vec': ['logging/*.yml', 'resources/*']},
     include_package_data=True,
     entry_points={
         'console_scripts': [
