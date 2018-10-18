@@ -65,10 +65,8 @@ def skipgram(features, labels, mode, params):
     men_correlation = tf.contrib.metrics.streaming_pearson_correlation(men_sim_predictions, men_sim_labels)
     metrics = {'MEN': men_correlation}
     tf.summary.scalar('MEN', men_correlation[1])
-    if mode == tf.estimator.ModeKeys.EVAL:
-        return tf.estimator.EstimatorSpec(mode, loss=loss,
-                                          eval_metric_ops=metrics)
-    return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=optimizer)
+    return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=optimizer,
+                                      eval_metric_ops=metrics)
 
 
 class Word2Vec():
@@ -155,9 +153,14 @@ class Word2Vec():
         if train_mode == 'cbow':
             pass
         if train_mode == 'skipgram':
+            sess_config = tf.ConfigProto()
+            sess_config.intra_op_parallelism_threads = self._num_threads
+            sess_config.inter_op_parallelism_threads = self._num_threads
+            run_config = tf.estimator.RunConfig(session_config=sess_config)
             self._estimator = tf.estimator.Estimator(
                 model_fn=skipgram,
                 model_dir=model_dirpath,
+                config=run_config,
                 params={
                     'vocab_size': self.vocab_size,
                     'embedding_size': embedding_size,
