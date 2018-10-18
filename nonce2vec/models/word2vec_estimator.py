@@ -114,7 +114,7 @@ class Word2Vec():
                 self._id2word[int(idx)] = word
 
     def _generate_train_dataset(self, training_data_filepath, window_size,
-                                batch_size, num_epochs, num_threads,
+                                batch_size, num_epochs, p_num_threads,
                                 shuffling_buffer_size=100,
                                 prefetch_batch_size=1000, buffer_size=10000):
         def extract_skipgram_ex(line):
@@ -132,7 +132,7 @@ class Word2Vec():
                 return np.array([features, labels], dtype=np.int32)
             return tf.py_func(process_line, [line], tf.int32)
         return (tf.data.TextLineDataset(training_data_filepath)
-                .map(extract_skipgram_ex, num_parallel_calls=num_threads)
+                .map(extract_skipgram_ex, num_parallel_calls=p_num_threads)
                 .prefetch(buffer_size)
                 .flat_map(lambda x: tf.data.Dataset.from_tensor_slices((x[0],
                                                                         x[1])))
@@ -144,7 +144,8 @@ class Word2Vec():
 
     def train(self, train_mode, training_data_filepath, model_dirpath,
               batch_size, embedding_size, num_neg_samples, learning_rate,
-              window_size, num_epochs, subsampling_rate, num_threads):
+              window_size, num_epochs, subsampling_rate, p_num_threads,
+              t_num_threads):
         """Train Word2Vec."""
         if self.vocab_size == 0:
             raise Exception('You need to build or load a vocabulary before '
@@ -155,8 +156,8 @@ class Word2Vec():
             pass
         if train_mode == 'skipgram':
             sess_config = tf.ConfigProto()
-            sess_config.intra_op_parallelism_threads = num_threads
-            sess_config.inter_op_parallelism_threads = num_threads
+            sess_config.intra_op_parallelism_threads = t_num_threads
+            sess_config.inter_op_parallelism_threads = t_num_threads
             run_config = tf.estimator.RunConfig(session_config=sess_config)
             self._estimator = tf.estimator.Estimator(
                 model_fn=skipgram,
@@ -172,7 +173,7 @@ class Word2Vec():
         self._estimator.train(
             input_fn=lambda: self._generate_train_dataset(
                 training_data_filepath, window_size, batch_size, num_epochs,
-                num_threads))
+                p_num_threads))
 
     def _generate_eval_dataset(self):
         men_filepath = os.path.join(os.path.dirname(os.path.dirname(__file__)),

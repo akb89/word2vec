@@ -90,7 +90,7 @@ def _train(args):
         w2v.load_vocab(args.vocab)
     w2v.train(args.train_mode, args.datafile, output_model_dirpath,
               args.batch, args.size, args.neg, args.alpha, args.window,
-              args.epochs, args.sample, args.num_threads)
+              args.epochs, args.sample, args.p_num_threads, args.t_num_threads)
     w2v.evaluate()
 
 
@@ -99,8 +99,7 @@ def __train(args):
     w2v = Word2Vec(min_count=args.min_count, batch_size=args.batch,
                    embedding_size=args.size, num_neg_samples=args.neg,
                    learning_rate=args.alpha, window_size=args.window,
-                   num_epochs=args.epochs, subsampling_rate=args.sample,
-                   num_threads=args.num_threads)
+                   num_epochs=args.epochs, subsampling_rate=args.sample)
     output_model_dirpath = futils.get_model_dirpath(args.datafile,
                                                     args.outputdir,
                                                     args.train_mode,
@@ -126,8 +125,10 @@ def main():
     subparsers = parser.add_subparsers()
     # a shared set of parameters when using gensim
     parser_gensim = argparse.ArgumentParser(add_help=False)
-    parser_gensim.add_argument('--num_threads', type=int, default=1,
-                               help='number of threads to be used by gensim')
+    parser_gensim.add_argument('--p-num-threads', type=int, default=1,
+                               help='number of threads used for preprocessing')
+    parser_gensim.add_argument('--t-num-threads', type=int, default=1,
+                               help='number of threads used for training')
     parser_gensim.add_argument('--alpha', type=float,
                                help='initial learning rate')
     parser_gensim.add_argument('--neg', type=int,
@@ -138,7 +139,7 @@ def main():
                                help='subsampling rate')
     parser_gensim.add_argument('--epochs', type=int,
                                help='number of epochs')
-    parser_gensim.add_argument('--min_count', type=int,
+    parser_gensim.add_argument('--min-count', type=int,
                                help='min frequency count')
 
     # train word2vec with gensim from a wikipedia dump
@@ -154,7 +155,7 @@ def main():
                               help='vector dimensionality')
     parser_train.add_argument('--batch', type=int, default=128,
                               help='batch size')
-    parser_train.add_argument('--train_mode', choices=['cbow', 'skipgram'],
+    parser_train.add_argument('--train-mode', choices=['cbow', 'skipgram'],
                               help='how to train word2vec')
     parser_train.add_argument('--outputdir', required=True,
                               help='Absolute path to outputdir to save model')
