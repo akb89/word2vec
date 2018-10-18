@@ -131,6 +131,7 @@ class Word2Vec():
                         labels.append(self._word2id[ctx.decode('utf8')])
                 return np.array([features, labels], dtype=np.int32)
             return tf.py_func(process_line, [line], tf.int32)
+        print('Preprocessing threads = {}'.format(p_num_threads))
         return (tf.data.TextLineDataset(training_data_filepath)
                 .map(extract_skipgram_ex, num_parallel_calls=p_num_threads)
                 .prefetch(buffer_size)
