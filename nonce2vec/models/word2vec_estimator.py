@@ -45,28 +45,29 @@ def skipgram(features, labels, mode, params):
     with tf.name_scope('optimizer'):
         optimizer = (tf.train.GradientDescentOptimizer(params['learning_rate'])
                      .minimize(loss, global_step=tf.train.get_global_step()))
-    men_filepath = os.path.join(os.path.dirname(os.path.dirname(__file__)),
-                                'resources', 'MEN_dataset_natural_form_full')
-    with open(men_filepath, 'r') as men_stream:
-        first_men_labels = []
-        second_men_labels = []
-        men_sim_labels = []
-        for line in men_stream:
-            tokens = line.strip().split()
-            first_men_labels.append(params['word2id'][tokens[0]])
-            second_men_labels.append(params['word2id'][tokens[1]])
-            men_sim_labels.append(float(tokens[2]))
-        first_men_labels = tf.convert_to_tensor(first_men_labels)
-        second_men_labels = tf.convert_to_tensor(second_men_labels)
-        men_sim_labels = tf.convert_to_tensor(men_sim_labels)
-    first_men_embeddings = tf.nn.embedding_lookup(embeddings, first_men_labels)
-    second_men_embeddings = tf.nn.embedding_lookup(embeddings, second_men_labels)
-    men_sim_predictions = tf.losses.cosine_distance(first_men_embeddings, second_men_embeddings, axis=1, reduction=tf.losses.Reduction.NONE)
-    men_correlation = tf.contrib.metrics.streaming_pearson_correlation(men_sim_predictions, men_sim_labels)
-    metrics = {'MEN': men_correlation}
-    tf.summary.scalar('MEN', men_correlation[1])
-    return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=optimizer,
-                                      eval_metric_ops=metrics)
+    # men_filepath = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+    #                             'resources', 'MEN_dataset_natural_form_full')
+    # with open(men_filepath, 'r') as men_stream:
+    #     first_men_labels = []
+    #     second_men_labels = []
+    #     men_sim_labels = []
+    #     for line in men_stream:
+    #         tokens = line.strip().split()
+    #         first_men_labels.append(params['word2id'][tokens[0]])
+    #         second_men_labels.append(params['word2id'][tokens[1]])
+    #         men_sim_labels.append(float(tokens[2]))
+    #     first_men_labels = tf.convert_to_tensor(first_men_labels)
+    #     second_men_labels = tf.convert_to_tensor(second_men_labels)
+    #     men_sim_labels = tf.convert_to_tensor(men_sim_labels)
+    # first_men_embeddings = tf.nn.embedding_lookup(embeddings, first_men_labels)
+    # second_men_embeddings = tf.nn.embedding_lookup(embeddings, second_men_labels)
+    # men_sim_predictions = tf.losses.cosine_distance(first_men_embeddings, second_men_embeddings, axis=1, reduction=tf.losses.Reduction.NONE)
+    # men_correlation = tf.contrib.metrics.streaming_pearson_correlation(men_sim_predictions, men_sim_labels)
+    # metrics = {'MEN': men_correlation}
+    # tf.summary.scalar('MEN', men_correlation[1])
+    # return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=optimizer,
+    #                                   eval_metric_ops=metrics)
+    return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=optimizer)
 
 
 class Word2Vec():
