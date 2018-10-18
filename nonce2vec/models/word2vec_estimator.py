@@ -119,6 +119,37 @@ class Word2Vec():
                                 prefetch_batch_size=1000, buffer_size=10000):
         def extract_skipgram_ex(line):
             def process_line(line):
+                return tf.strings.strip(line)
+                features = []
+                labels = []
+                tokens = line.strip().split()
+                for target_id, target in enumerate(tokens):
+                    for ctx_id, ctx in enumerate(tokens):
+                        if ctx_id == target_id \
+                         or abs(ctx_id - target_id) > window_size:
+                            continue
+                        features.append(self._word2id[target.decode('utf8')])
+                        labels.append(self._word2id[ctx.decode('utf8')])
+                return np.array([features, labels], dtype=np.int32)
+            return tf.py_func(process_line, [line], tf.int32)
+            print(tf.strings.split(tf.strings.strip(line)))
+            return tf.strings.split(tf.strings.strip(line))
+        return (tf.data.TextLineDataset(training_data_filepath)
+                .map(extract_skipgram_ex, num_parallel_calls=p_num_threads)
+                .flat_map(lambda x: tf.data.Dataset.from_tensor_slices((x[0],
+                                                                        x[1])))
+                .shuffle(buffer_size=shuffling_buffer_size,
+                         reshuffle_each_iteration=False)
+                .repeat(num_epochs)
+                .batch(batch_size)
+                .prefetch(prefetch_batch_size))
+
+    def __generate_train_dataset(self, training_data_filepath, window_size,
+                                batch_size, num_epochs, p_num_threads,
+                                shuffling_buffer_size=100,
+                                prefetch_batch_size=1000, buffer_size=10000):
+        def extract_skipgram_ex(line):
+            def process_line(line):
                 features = []
                 labels = []
                 tokens = line.strip().split()
