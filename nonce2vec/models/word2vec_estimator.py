@@ -154,8 +154,8 @@ class Word2Vec():
             pass
         if train_mode == 'skipgram':
             sess_config = tf.ConfigProto()
-            sess_config.intra_op_parallelism_threads = self._num_threads
-            sess_config.inter_op_parallelism_threads = self._num_threads
+            sess_config.intra_op_parallelism_threads = num_threads
+            sess_config.inter_op_parallelism_threads = num_threads
             run_config = tf.estimator.RunConfig(session_config=sess_config)
             self._estimator = tf.estimator.Estimator(
                 model_fn=skipgram,
