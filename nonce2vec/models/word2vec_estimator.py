@@ -114,11 +114,10 @@ class Word2Vec():
                 self._id2word[int(idx)] = word
 
 
-
     def _generate_train_dataset(self, training_data_filepath, window_size,
                                 batch_size, num_epochs,
-                                shuffling_buffer_size=100000,
-                                buffer_size=100000):
+                                shuffling_buffer_size=1000,
+                                buffer_size=1000):
         def get_ctx_items(tokens, target_id, window_size):
             ctx_1 = tokens[max(0, target_id-window_size):target_id]
             ctx_2 = tokens[target_id+1:min(len(tokens), target_id+window_size+1)]
