@@ -45,29 +45,29 @@ def skipgram(features, labels, mode, params):
     with tf.name_scope('optimizer'):
         optimizer = (tf.train.GradientDescentOptimizer(params['learning_rate'])
                      .minimize(loss, global_step=tf.train.get_global_step()))
-    # men_filepath = os.path.join(os.path.dirname(os.path.dirname(__file__)),
-    #                             'resources', 'MEN_dataset_natural_form_full')
-    # with open(men_filepath, 'r') as men_stream:
-    #     first_men_labels = []
-    #     second_men_labels = []
-    #     men_sim_labels = []
-    #     for line in men_stream:
-    #         tokens = line.strip().split()
-    #         first_men_labels.append(params['word2id'][tokens[0]])
-    #         second_men_labels.append(params['word2id'][tokens[1]])
-    #         men_sim_labels.append(float(tokens[2]))
-    #     first_men_labels = tf.convert_to_tensor(first_men_labels)
-    #     second_men_labels = tf.convert_to_tensor(second_men_labels)
-    #     men_sim_labels = tf.convert_to_tensor(men_sim_labels)
-    # first_men_embeddings = tf.nn.embedding_lookup(embeddings, first_men_labels)
-    # second_men_embeddings = tf.nn.embedding_lookup(embeddings, second_men_labels)
-    # men_sim_predictions = tf.losses.cosine_distance(first_men_embeddings, second_men_embeddings, axis=1, reduction=tf.losses.Reduction.NONE)
-    # men_correlation = tf.contrib.metrics.streaming_pearson_correlation(men_sim_predictions, men_sim_labels)
-    # metrics = {'MEN': men_correlation}
-    # tf.summary.scalar('MEN', men_correlation[1])
-    # return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=optimizer,
-    #                                   eval_metric_ops=metrics)
-    return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=optimizer)
+    men_filepath = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                                'resources', 'MEN_dataset_natural_form_full')
+    with open(men_filepath, 'r') as men_stream:
+        first_men_labels = []
+        second_men_labels = []
+        men_sim_labels = []
+        for line in men_stream:
+            tokens = line.strip().split()
+            first_men_labels.append(params['word2id'][tokens[0]])
+            second_men_labels.append(params['word2id'][tokens[1]])
+            men_sim_labels.append(float(tokens[2]))
+        first_men_labels = tf.convert_to_tensor(first_men_labels)
+        second_men_labels = tf.convert_to_tensor(second_men_labels)
+        men_sim_labels = tf.convert_to_tensor(men_sim_labels)
+    first_men_embeddings = tf.nn.embedding_lookup(embeddings, first_men_labels)
+    second_men_embeddings = tf.nn.embedding_lookup(embeddings, second_men_labels)
+    men_sim_predictions = tf.losses.cosine_distance(first_men_embeddings, second_men_embeddings, axis=1, reduction=tf.losses.Reduction.NONE)
+    men_correlation = tf.contrib.metrics.streaming_pearson_correlation(men_sim_predictions, men_sim_labels)
+    metrics = {'MEN': men_correlation}
+    tf.summary.scalar('MEN', men_correlation[1])
+    return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=optimizer,
+                                      eval_metric_ops=metrics)
+    #return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=optimizer)
 
 
 class Word2Vec():
@@ -113,71 +113,36 @@ class Word2Vec():
                 self._word2id[word] = int(idx)
                 self._id2word[int(idx)] = word
 
-    def _generate_train_dataset(self, training_data_filepath, window_size,
-                                batch_size, num_epochs, p_num_threads,
-                                shuffling_buffer_size=100,
-                                prefetch_batch_size=1000, buffer_size=10000):
-        def extract_skipgram_ex(line):
-            def process_line(line):
-                return tf.strings.strip(line)
-                features = []
-                labels = []
-                tokens = line.strip().split()
-                for target_id, target in enumerate(tokens):
-                    for ctx_id, ctx in enumerate(tokens):
-                        if ctx_id == target_id \
-                         or abs(ctx_id - target_id) > window_size:
-                            continue
-                        features.append(self._word2id[target.decode('utf8')])
-                        labels.append(self._word2id[ctx.decode('utf8')])
-                return np.array([features, labels], dtype=np.int32)
-            return tf.py_func(process_line, [line], tf.int32)
-            print(tf.strings.split(tf.strings.strip(line)))
-            return tf.strings.split(tf.strings.strip(line))
-        return (tf.data.TextLineDataset(training_data_filepath)
-                .map(extract_skipgram_ex, num_parallel_calls=p_num_threads)
-                .flat_map(lambda x: tf.data.Dataset.from_tensor_slices((x[0],
-                                                                        x[1])))
-                .shuffle(buffer_size=shuffling_buffer_size,
-                         reshuffle_each_iteration=False)
-                .repeat(num_epochs)
-                .batch(batch_size)
-                .prefetch(prefetch_batch_size))
 
-    def __generate_train_dataset(self, training_data_filepath, window_size,
-                                batch_size, num_epochs, p_num_threads,
-                                shuffling_buffer_size=100,
-                                prefetch_batch_size=1000, buffer_size=10000):
-        def extract_skipgram_ex(line):
-            def process_line(line):
-                features = []
-                labels = []
-                tokens = line.strip().split()
-                for target_id, target in enumerate(tokens):
-                    for ctx_id, ctx in enumerate(tokens):
-                        if ctx_id == target_id \
-                         or abs(ctx_id - target_id) > window_size:
-                            continue
-                        features.append(self._word2id[target.decode('utf8')])
-                        labels.append(self._word2id[ctx.decode('utf8')])
-                return np.array([features, labels], dtype=np.int32)
-            return tf.py_func(process_line, [line], tf.int32)
-        print('Preprocessing threads = {}'.format(p_num_threads))
-        return (tf.data.TextLineDataset(training_data_filepath)
-                .map(extract_skipgram_ex, num_parallel_calls=p_num_threads)
-                .prefetch(buffer_size)
-                .flat_map(lambda x: tf.data.Dataset.from_tensor_slices((x[0],
-                                                                        x[1])))
+
+    def _generate_train_dataset(self, training_data_filepath, window_size,
+                                batch_size, num_epochs,
+                                shuffling_buffer_size=100000,
+                                buffer_size=100000):
+        def get_ctx_items(tokens, target_id, window_size):
+            ctx_1 = tokens[max(0, target_id-window_size):target_id]
+            ctx_2 = tokens[target_id+1:min(len(tokens), target_id+window_size+1)]
+            return [*ctx_1, *ctx_2]
+
+        def get_example():
+            with open(training_data_filepath, 'r') as training_datastream:
+                for line in training_datastream:
+                    tokens = line.strip().split()
+                    for target_id, target in enumerate(tokens):
+                        for ctx in get_ctx_items(tokens, target_id, window_size):
+                            yield self._word2id[target], self._word2id[ctx]
+
+        return (tf.data.Dataset.from_generator(get_example,
+                                               (tf.int32, tf.int32))
                 .shuffle(buffer_size=shuffling_buffer_size,
                          reshuffle_each_iteration=False)
                 .repeat(num_epochs)
                 .batch(batch_size)
-                .prefetch(prefetch_batch_size))
+                .prefetch(buffer_size))
 
     def train(self, train_mode, training_data_filepath, model_dirpath,
               batch_size, embedding_size, num_neg_samples, learning_rate,
-              window_size, num_epochs, subsampling_rate, p_num_threads,
-              t_num_threads):
+              window_size, num_epochs, subsampling_rate, num_threads):
         """Train Word2Vec."""
         if self.vocab_size == 0:
             raise Exception('You need to build or load a vocabulary before '
@@ -188,8 +153,8 @@ class Word2Vec():
             pass
         if train_mode == 'skipgram':
             sess_config = tf.ConfigProto()
-            sess_config.intra_op_parallelism_threads = t_num_threads
-            sess_config.inter_op_parallelism_threads = t_num_threads
+            sess_config.intra_op_parallelism_threads = num_threads
+            sess_config.inter_op_parallelism_threads = num_threads
             run_config = tf.estimator.RunConfig(session_config=sess_config)
             self._estimator = tf.estimator.Estimator(
                 model_fn=skipgram,
@@ -204,8 +169,7 @@ class Word2Vec():
                 })
         self._estimator.train(
             input_fn=lambda: self._generate_train_dataset(
-                training_data_filepath, window_size, batch_size, num_epochs,
-                p_num_threads))
+                training_data_filepath, window_size, batch_size, num_epochs))
 
     def _generate_eval_dataset(self):
         men_filepath = os.path.join(os.path.dirname(os.path.dirname(__file__)),
