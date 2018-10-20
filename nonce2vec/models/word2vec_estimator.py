@@ -103,20 +103,21 @@ class Word2Vec():
         logger.info('Saving word frequencies to file: {}'.format(vocab_filepath))
         with open(vocab_filepath, 'w') as vocab_stream:
             for key, value in self._word_freq_dict.items():
-                print('{}_#_{}'.format(key, value), file=vocab_stream)
+                print('{}\t{}'.format(key, value), file=vocab_stream)
 
     def load_vocab(self, vocab_filepath):
         """Load a previously saved vocabulary file."""
         logger.info('Loading word frequencies from file {}'.format(vocab_filepath))
-        with open(vocab_filepath, 'r') as vocab_stream:
+        with open(vocab_filepath, 'r', encoding='UTF-8') as vocab_stream:
             for line in vocab_stream:
-                word_freq = line.strip().split('_#_', 1)
+                word_freq = line.strip().split('\t', 1)
+                print(line, word_freq)
                 self._word_freq_dict[word_freq[0]] = int(word_freq[1])
 
     def _generate_train_dataset(self, training_data_filepath, window_size,
                                 min_count, batch_size, num_epochs,
                                 p_num_threads, shuffling_buffer_size=1000,
-                                prefetch_batch_size=1000):
+                                prefetch_batch_size=100):
         # Needs to be here to make sure everything belongs to the same graph
         self._vocab = self._get_tf_vocab_table(self._word_freq_dict, min_count)
         def ctx_idxx(target_idx, window_size, tokens):
