@@ -72,7 +72,7 @@ def skipgram(features, labels, mode, params):
     return tf.estimator.EstimatorSpec(
         mode, loss=loss, train_op=optimizer,
         training_hooks=[tf.train.ProfilerHook(
-            save_steps=100, show_dataflow=True, show_memory=True,
+            save_steps=10000, show_dataflow=True, show_memory=True,
             output_dir=params['model_dirpath'])])
 
 
@@ -203,7 +203,10 @@ class Word2Vec():
             sess_config = tf.ConfigProto()
             sess_config.intra_op_parallelism_threads = t_num_threads
             sess_config.inter_op_parallelism_threads = t_num_threads
-            run_config = tf.estimator.RunConfig(session_config=sess_config)
+            run_config = tf.estimator.RunConfig(
+                session_config=sess_config, save_summary_steps=1000,
+                save_checkpoints_steps=10000, keep_checkpoint_max=3,
+                log_step_count_steps=1000)
             self._estimator = tf.estimator.Estimator(
                 model_fn=skipgram,
                 model_dir=model_dirpath,
@@ -219,18 +222,9 @@ class Word2Vec():
         self._estimator.train(
             input_fn=lambda: self._generate_train_dataset(
                 training_data_filepath, window_size, min_count, batch_size,
-                num_epochs, p_num_threads))
-        # tf.enable_eager_execution()
-        # with tf.Session(graph=tf.Graph()) as session:
-        #     dataset = self._generate_train_dataset(
-        #             training_data_filepath, window_size, batch_size,
-        #             num_epochs, p_num_threads)
-        #     iterator = dataset.make_initializable_iterator()
-        #     init_op = iterator.initializer
-        #     x = iterator.get_next()
-        #     session.run(init_op)
-        #     while True:
-        #         print(x[0].eval(), x[1].eval())
+                num_epochs, p_num_threads), hooks=[tf.train.ProfilerHook(
+                    save_steps=10000, show_dataflow=True, show_memory=True,
+                    output_dir=model_dirpath)])
 
     def _generate_eval_dataset(self):
         men_filepath = os.path.join(os.path.dirname(os.path.dirname(__file__)),
