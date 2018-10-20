@@ -69,11 +69,7 @@ def skipgram(features, labels, mode, params):
     # tf.summary.scalar('MEN', men_correlation[1])
     # return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=optimizer,
     #                                   eval_metric_ops=metrics)
-    return tf.estimator.EstimatorSpec(
-        mode, loss=loss, train_op=optimizer,
-        training_hooks=[tf.train.ProfilerHook(
-            save_steps=10000, show_dataflow=True, show_memory=True,
-            output_dir=params['model_dirpath'])])
+    return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=optimizer)
 
 
 class Word2Vec():
@@ -215,8 +211,7 @@ class Word2Vec():
                     'vocab_size': self.vocab_size,
                     'embedding_size': embedding_size,
                     'num_neg_samples': num_neg_samples,
-                    'learning_rate': learning_rate,
-                    'model_dirpath': model_dirpath
+                    'learning_rate': learning_rate
                     #'vocab': self._vocab
                 })
         self._estimator.train(
