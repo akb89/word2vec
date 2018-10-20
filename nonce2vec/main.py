@@ -67,6 +67,7 @@ def _check_men(args):
     # spr = _spearman(human_actual, system_actual)
     # logger.info('SPEARMAN: {} calculated over {} items'.format(spr, count))
 
+
 def _train(args):
     logger.info('Training Tensorflow implementation of Word2Vec')
     w2v = Word2Vec()
@@ -83,15 +84,20 @@ def _train(args):
                 'Unspecified data_filepath. You need to specify the data '
                 'file from which to build the vocabulary, or to specify a '
                 'valid vocabulary filepath')
-        vocab_filepath = futils.get_vocab_filepath(output_model_dirpath,
-                                                   args.min_count)
-        w2v.build_vocab(args.datafile, vocab_filepath, args.min_count)
+        if not os.path.exists(args.vocab):
+            logger.warning('The specified vocabulary filepath does not seem '
+                           'to exist: {}'.format(args.vocab))
+            logger.warning('Re-building vocabulary from scratch')
+        vocab_filepath = futils.get_vocab_filepath(args.datafile,
+                                                   output_model_dirpath)
+        w2v.build_vocab(args.datafile, vocab_filepath)
     else:
         w2v.load_vocab(args.vocab)
     w2v.train(args.train_mode, args.datafile, output_model_dirpath,
-              args.batch, args.size, args.neg, args.alpha, args.window,
-              args.epochs, args.sample, args.num_threads)
-    w2v.evaluate()
+              args.min_count, args.batch, args.size, args.neg, args.alpha,
+              args.window, args.epochs, args.sample, args.p_num_threads,
+              args.t_num_threads)
+    #w2v.evaluate()
 
 
 def main():
@@ -100,7 +106,9 @@ def main():
     subparsers = parser.add_subparsers()
     # a shared set of parameters when using gensim
     parser_gensim = argparse.ArgumentParser(add_help=False)
-    parser_gensim.add_argument('--num-threads', type=int, default=1,
+    parser_gensim.add_argument('--p-num-threads', type=int, default=1,
+                               help='number of threads used for preprocessing')
+    parser_gensim.add_argument('--t-num-threads', type=int, default=1,
                                help='number of threads used for training')
     parser_gensim.add_argument('--alpha', type=float,
                                help='initial learning rate')

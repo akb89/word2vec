@@ -36,7 +36,7 @@ def stack_to_features_and_labels(features, labels, target_idx, tokens):
     return tf.concat([features, feature], axis=0), \
            tf.concat([labels, label], axis=0), target_idx+1, tokens
 
-def extract_examples(tokens, window_size):
+def extract_examples(tokens, window_size, p_num_threads):
     features = tf.constant([], dtype=tf.int32)
     labels = tf.constant([], dtype=tf.int32)
     target_idx = tf.constant(0)
@@ -46,12 +46,14 @@ def extract_examples(tokens, window_size):
         body=stack_to_features_and_labels,
         loop_vars=[features, labels, target_idx, tokens],
         shape_invariants=[tf.TensorShape([None]), tf.TensorShape([None]),
-                          target_idx.get_shape(), tokens.get_shape()])
+                          target_idx.get_shape(), tokens.get_shape()],
+        parallel_iterations=p_num_threads)
     return result[0], result[1]
 
 if __name__ == '__main__':
     tf.enable_eager_execution()
     window_size = 4
+    p_num_threads= 2
     with tf.Session(graph=tf.Graph()) as session:
         dataset = (tf.data.TextLineDataset('/Users/AKB/GitHub/nonce2vec/data/wikipedia/wiki.test')
                    .map(tf.strings.strip)
@@ -59,7 +61,7 @@ if __name__ == '__main__':
                    .map(lambda x: tf.strings.split([x]))
                    .map(lambda x: x.values)
                    .map(lambda tokens: tf.map_fn(lambda token: 0, tokens, dtype=tf.int32))  # discretized
-                   .map(lambda tokens: extract_examples(tokens, window_size))
+                   .map(lambda tokens: extract_examples(tokens, window_size, p_num_threads))
                    .flat_map(lambda features, labels: tf.data.Dataset.from_tensor_slices((features, labels))))
         iterator = dataset.make_initializable_iterator()
         init_op = iterator.initializer
