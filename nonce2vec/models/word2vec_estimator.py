@@ -115,8 +115,8 @@ class Word2Vec():
 
     def _generate_train_dataset(self, training_data_filepath, window_size,
                                 min_count, batch_size, num_epochs,
-                                p_num_threads, shuffling_buffer_size=1000,
-                                prefetch_batch_size=100):
+                                p_num_threads, shuffling_buffer_size=10,
+                                prefetch_batch_size=10):
         # Needs to be here to make sure everything belongs to the same graph
         self._vocab = self._get_tf_vocab_table(self._word_freq_dict, min_count)
         def ctx_idxx(target_idx, window_size, tokens):
@@ -175,7 +175,7 @@ class Word2Vec():
                 .map(lambda x: tf.strings.split([x]), num_parallel_calls=p_num_threads)
                 .map(lambda x: self._vocab.lookup(x.values), num_parallel_calls=p_num_threads)  # discretize
                 .map(lambda tokens: extract_examples(tokens, window_size, p_num_threads), num_parallel_calls=p_num_threads)
-                .prefetch(prefetch_batch_size)
+                .prefetch(100000)
                 .flat_map(lambda features, labels: tf.data.Dataset.from_tensor_slices((features, labels)))
                 .shuffle(buffer_size=shuffling_buffer_size,
                          reshuffle_each_iteration=False)
