@@ -201,8 +201,8 @@ class Word2Vec():
             sess_config.inter_op_parallelism_threads = t_num_threads
             run_config = tf.estimator.RunConfig(
                 session_config=sess_config, save_summary_steps=1000,
-                save_checkpoints_steps=10000, keep_checkpoint_max=3,
-                log_step_count_steps=1000)
+                save_checkpoints_steps=100000, keep_checkpoint_max=3,
+                log_step_count_steps=100)
             self._estimator = tf.estimator.Estimator(
                 model_fn=skipgram,
                 model_dir=model_dirpath,
