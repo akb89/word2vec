@@ -111,7 +111,6 @@ class Word2Vec():
         with open(vocab_filepath, 'r', encoding='UTF-8') as vocab_stream:
             for line in vocab_stream:
                 word_freq = line.strip().split('\t', 1)
-                print(line, word_freq)
                 self._word_freq_dict[word_freq[0]] = int(word_freq[1])
 
     def _generate_train_dataset(self, training_data_filepath, window_size,
