@@ -119,7 +119,7 @@ if __name__ == '__main__':
     VOCAB = sys.argv[2]
     PT = int(sys.argv[3])  # preprocessing threads
     FMPBS = int(sys.argv[4])  # flat map prefetch batch size
-    PBS = int(sys.argv[5])  # prefetching batch size
+    BS = int(sys.argv[5])  # batch size
     print('-'*80)
     print('RUNNING ON {} THREAD(S) with FMPBS = {} and PBS = {}'
           .format(PT, FMPBS, PBS))
@@ -128,7 +128,7 @@ if __name__ == '__main__':
     w2v.load_vocab(VOCAB)
     WIN = 5  # window size
     MINC = 1  # min count
-    BS = 1  # batch size
+    PBS = 1  # prefetching batch size
     NE = 1  # num epochs
     SBS = 1  # shuffling batch size
     with tf.Session(graph=tf.Graph()) as session:
