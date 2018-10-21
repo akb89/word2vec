@@ -70,7 +70,6 @@ def _check_men(args):
 
 def _train(args):
     logger.info('Training Tensorflow implementation of Word2Vec')
-    w2v = Word2Vec()
     output_model_dirpath = futils.get_model_dirpath(args.datafile,
                                                     args.outputdir,
                                                     args.train_mode,
@@ -78,7 +77,8 @@ def _train(args):
                                                     args.window, args.sample,
                                                     args.epochs,
                                                     args.min_count, args.size)
-    if not args.vocab or not os.path.exists(args.vocab):
+    w2v = Word2Vec(output_model_dirpath)
+    if not args.vocab or (args.vocab and not os.path.exists(args.vocab)):
         if not args.datafile:
             raise Exception(
                 'Unspecified data_filepath. You need to specify the data '
