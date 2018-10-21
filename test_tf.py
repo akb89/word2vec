@@ -117,19 +117,19 @@ class Word2Vec():
 if __name__ == '__main__':
     TDF = sys.argv[1]
     VOCAB = sys.argv[2]
-    PT = int(sys.argv[3])
+    PT = int(sys.argv[3])  # preprocessing threads
+    FMPBS = int(sys.argv[4])  # flat map prefetch batch size
+    PBS = int(sys.argv[5])  # prefetching batch size
+    print('-'*80)
+    print('RUNNING ON {} THREAD(S)'.format(PT))
     tf.enable_eager_execution()
     w2v = Word2Vec()
     w2v.load_vocab(VOCAB)
-    # TDF = '/home/kabbach/nonce2vec/data/wikipedia/wiki.1000.test'
     WIN = 5  # window size
     MINC = 1  # min count
     BS = 1  # batch size
     NE = 1  # num epochs
-    # PT = 1  # preprocessing threads
     SBS = 1  # shuffling batch size
-    PBS = 1  # prefetching batch size
-    FMPBS = 1  # flat map prefetch batch size
     with tf.Session(graph=tf.Graph()) as session:
         dataset = w2v._generate_train_dataset(TDF, WIN, MINC, BS, NE, PT, SBS,
                                               PBS, FMPBS)
@@ -146,8 +146,6 @@ if __name__ == '__main__':
             except tf.errors.OutOfRangeError:
                 end = time.monotonic()
                 total = round(end-start, 2)
-                print('-'*80)
-                print('RUNNING ON {} THREAD(S)'.format(PT))
                 print('Processed {} batches of size {} in {}s'.format(i, BS, total))
                 average_batch_s = round((end - start) / i)
                 average_batch_ms = round(((end - start) / i) * 1000, 2)
