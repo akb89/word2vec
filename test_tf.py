@@ -102,7 +102,7 @@ class Word2Vec():
 
         return (tf.data.TextLineDataset(training_data_filepath)
                 .map(tf.strings.strip, num_parallel_calls=p_num_threads)
-                #.filter(lambda x: tf.not_equal(tf.strings.length(x), 0))  # Filter empty strings
+                .filter(lambda x: tf.not_equal(tf.strings.length(x), 0))  # Filter empty strings
                 .map(lambda x: tf.strings.split([x]), num_parallel_calls=p_num_threads)
                 .map(lambda x: self._vocab.lookup(x.values), num_parallel_calls=p_num_threads)  # discretize
                 .map(lambda tokens: extract_examples(tokens, window_size, p_num_threads), num_parallel_calls=p_num_threads)
