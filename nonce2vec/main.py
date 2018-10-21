@@ -84,7 +84,7 @@ def _train(args):
                 'Unspecified data_filepath. You need to specify the data '
                 'file from which to build the vocabulary, or to specify a '
                 'valid vocabulary filepath')
-        if not os.path.exists(args.vocab):
+        elif not os.path.exists(args.vocab):
             logger.warning('The specified vocabulary filepath does not seem '
                            'to exist: {}'.format(args.vocab))
             logger.warning('Re-building vocabulary from scratch')
