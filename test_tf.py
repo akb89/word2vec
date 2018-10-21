@@ -121,8 +121,8 @@ if __name__ == '__main__':
     FMPBS = int(sys.argv[4])  # flat map prefetch batch size
     BS = int(sys.argv[5])  # batch size
     print('-'*80)
-    print('RUNNING ON {} THREAD(S) with FMPBS = {} and PBS = {}'
-          .format(PT, FMPBS, PBS))
+    print('RUNNING ON {} THREAD(S) with FMPBS = {} and BS = {}'
+          .format(PT, FMPBS, BS))
     tf.enable_eager_execution()
     w2v = Word2Vec()
     w2v.load_vocab(VOCAB)
