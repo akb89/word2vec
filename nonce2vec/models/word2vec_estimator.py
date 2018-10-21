@@ -118,6 +118,7 @@ class Word2Vec():
                                 p_num_threads, shuffling_buffer_size=10,
                                 prefetch_batch_size=50):
         # Needs to be here to make sure everything belongs to the same graph
+        self._profiler_hook.begin()
         self._vocab = self._get_tf_vocab_table(self._word_freq_dict, min_count)
         def ctx_idxx(target_idx, window_size, tokens):
             """
@@ -200,9 +201,9 @@ class Word2Vec():
             sess_config.intra_op_parallelism_threads = t_num_threads
             sess_config.inter_op_parallelism_threads = t_num_threads
             run_config = tf.estimator.RunConfig(
-                session_config=sess_config, save_summary_steps=1000,
+                session_config=sess_config, save_summary_steps=10,
                 save_checkpoints_secs=5400, keep_checkpoint_max=3,
-                log_step_count_steps=1000)
+                log_step_count_steps=10)
             self._estimator = tf.estimator.Estimator(
                 model_fn=skipgram,
                 model_dir=model_dirpath,
@@ -217,9 +218,7 @@ class Word2Vec():
         self._estimator.train(
             input_fn=lambda: self._generate_train_dataset(
                 training_data_filepath, window_size, min_count, batch_size,
-                num_epochs, p_num_threads), hooks=[tf.train.ProfilerHook(
-                    save_steps=10000, show_dataflow=True, show_memory=True,
-                    output_dir=model_dirpath)])
+                num_epochs, p_num_threads))
 
     def _generate_eval_dataset(self):
         men_filepath = os.path.join(os.path.dirname(os.path.dirname(__file__)),

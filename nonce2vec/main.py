@@ -77,7 +77,7 @@ def _train(args):
                                                     args.window, args.sample,
                                                     args.epochs,
                                                     args.min_count, args.size)
-    w2v = Word2Vec(output_model_dirpath)
+    w2v = Word2Vec()
     if not args.vocab or (args.vocab and not os.path.exists(args.vocab)):
         if not args.datafile:
             raise Exception(
