@@ -20,7 +20,6 @@ class Word2Vec():
 
     def load_vocab(self, vocab_filepath):
         """Load a previously saved vocabulary file."""
-        print('Loading word frequencies from file {}'.format(vocab_filepath))
         with open(vocab_filepath, 'r', encoding='UTF-8') as vocab_stream:
             for line in vocab_stream:
                 word_freq = line.strip().split('\t', 1)
@@ -123,7 +122,7 @@ if __name__ == '__main__':
     w2v = Word2Vec()
     w2v.load_vocab(VOCAB)
     # TDF = '/home/kabbach/nonce2vec/data/wikipedia/wiki.1000.test'
-    WIN = 1  # window size
+    WIN = 5  # window size
     MINC = 1  # min count
     BS = 1  # batch size
     NE = 1  # num epochs
