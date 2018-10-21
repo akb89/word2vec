@@ -118,7 +118,6 @@ class Word2Vec():
                                 p_num_threads, shuffling_buffer_size=10,
                                 prefetch_batch_size=50):
         # Needs to be here to make sure everything belongs to the same graph
-        self._profiler_hook.begin()
         self._vocab = self._get_tf_vocab_table(self._word_freq_dict, min_count)
         def ctx_idxx(target_idx, window_size, tokens):
             """
