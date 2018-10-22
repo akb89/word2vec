@@ -99,20 +99,20 @@ class Word2Vec():
                                   window_size.get_shape()],
                 parallel_iterations=p_num_threads)
             return result[0], result[1]
-        with tf.contrib.compiler.jit.experimental_jit_scope():
-            return (tf.data.TextLineDataset(training_data_filepath)
-                    .map(tf.strings.strip, num_parallel_calls=p_num_threads)
-                    .filter(lambda x: tf.not_equal(tf.strings.length(x), 0))  # Filter empty strings
-                    .map(lambda x: tf.strings.split([x]), num_parallel_calls=p_num_threads)
-                    .map(lambda x: self._vocab.lookup(x.values), num_parallel_calls=p_num_threads)  # discretize
-                    .map(lambda tokens: extract_examples(tokens, window_size, p_num_threads), num_parallel_calls=p_num_threads)
-                    .prefetch(flat_map_pref_batch_size)
-                    .flat_map(lambda features, labels: tf.data.Dataset.from_tensor_slices((features, labels)))
-                    # .shuffle(buffer_size=shuffling_buffer_size,
-                    #          reshuffle_each_iteration=False)
-                    .repeat(num_epochs)
-                    .batch(batch_size)
-                    .prefetch(prefetch_batch_size))
+        return (tf.data.TextLineDataset(training_data_filepath)
+                .map(tf.strings.strip, num_parallel_calls=p_num_threads)
+                .filter(lambda x: tf.not_equal(tf.strings.length(x), 0))  # Filter empty strings
+                .map(lambda x: tf.strings.split([x]), num_parallel_calls=p_num_threads)
+                .map(lambda x: self._vocab.lookup(x.values), num_parallel_calls=p_num_threads)  # discretize
+                .map(lambda tokens: extract_examples(tokens, window_size, p_num_threads), num_parallel_calls=p_num_threads)
+                .prefetch(flat_map_pref_batch_size)
+                .flat_map(lambda features, labels: tf.data.Dataset.from_tensor_slices((features, labels)))
+                .shuffle(buffer_size=shuffling_buffer_size,
+                         reshuffle_each_iteration=False)
+                .repeat(num_epochs)
+                .batch(batch_size)
+                .prefetch(prefetch_batch_size))
+
 
 if __name__ == '__main__':
     TDF = sys.argv[1]
@@ -120,17 +120,17 @@ if __name__ == '__main__':
     PT = int(sys.argv[3])  # preprocessing threads
     FMPBS = int(sys.argv[4])  # flat map prefetch batch size
     BS = int(sys.argv[5])  # batch size
+    PBS = int(sys.argv[6])  # prefetching batch size
+    NE = int(sys.argv[7])  # num epochs
+    SBS = int(sys.argv[8])  # shuffling batch size
     print('-'*80)
-    print('RUNNING ON {} THREAD(S) with FMPBS = {} and BS = {}'
-          .format(PT, FMPBS, BS))
+    print('RUNNING ON {} THREAD(S) with FMPBS = {}, BS = {}, PBS = {}, NE = {}, SBS = {}'
+          .format(PT, FMPBS, BS, PBS, NE, SBS))
     tf.enable_eager_execution()
     w2v = Word2Vec()
     w2v.load_vocab(VOCAB)
     WIN = 5  # window size
     MINC = 1  # min count
-    PBS = 1  # prefetching batch size
-    NE = 1  # num epochs
-    SBS = 1  # shuffling batch size
     with tf.Session(graph=tf.Graph()) as session:
         dataset = w2v._generate_train_dataset(TDF, WIN, MINC, BS, NE, PT, SBS,
                                               PBS, FMPBS)
