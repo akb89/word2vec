@@ -14,6 +14,37 @@ logger = logging.getLogger(__name__)
 __all__ = ('Word2Vec')
 
 
+class MEN():
+    """A class to store MEN examples."""
+
+    def __init__(self, men_filepath):
+        """Load MEN labels and similarity metrics from file."""
+        with open(men_filepath, 'r') as men_stream:
+            self._left_labels = []
+            self._right_labels = []
+            self._sim_values = []
+            for line in men_stream:
+                tokens = line.strip().split()
+                self._left_labels.append(tokens[0])
+                self._right_labels.append(tokens[1])
+                self._sim_values.append(float(tokens[2]))
+
+    @property
+    def left_labels(self):
+        """Return all MEN left word labels as a list of strings."""
+        return self._left_labels
+
+    @property
+    def right_labels(self):
+        """Return all MEN right word labels as a list of strings."""
+        return self._right_labels
+
+    @property
+    def sim_values(self):
+        """Return all MEN similarity values as a list of floats."""
+        return self._sim_values
+
+
 def ctx_idxx(target_idx, window_size, tokens):
     """
     # Get the idx corresponding to target-idx in the ctx_range:
@@ -89,6 +120,19 @@ def get_tf_vocab_table(word_freq_dict, min_count):
         default_value=len(word_freq_dict))
 
 
+def get_men_correlation(men, vocab, embeddings):
+    """Return spearman correlation metric on the MEN dataset."""
+    left_label_embeddings = tf.nn.embedding_lookup(
+        embeddings, vocab.lookup(men.left_labels))
+    right_label_embeddings = tf.nn.embedding_lookup(
+        embeddings, vocab.lookup(men.right_labels))
+    sim_predictions = tf.losses.cosine_distance(
+        left_label_embeddings, right_label_embeddings, axis=1,
+        reduction=tf.losses.Reduction.NONE)
+    return tf.contrib.metrics.streaming_pearson_correlation(
+        sim_predictions, men.sim_values)
+
+
 def cbow(features, labels, mode, params):
     """Return Word2Vec CBOW model."""
     pass
@@ -121,29 +165,13 @@ def skipgram(features, labels, mode, params):
         with tf.contrib.compiler.jit.experimental_jit_scope():
             optimizer = (tf.train.GradientDescentOptimizer(params['learning_rate'])
                          .minimize(loss, global_step=tf.train.get_global_step()))
-    men_filepath = os.path.join(os.path.dirname(os.path.dirname(__file__)),
-                                'resources', 'MEN_dataset_natural_form_full')
-    # with open(men_filepath, 'r') as men_stream:
-    #     first_men_labels = []
-    #     second_men_labels = []
-    #     men_sim_labels = []
-    #     for line in men_stream:
-    #         tokens = line.strip().split()
-    #         first_men_labels.append(params['vocab'].lookup(tokens[0]))
-    #         second_men_labels.append(params['vocab'].lookup(tokens[1]))
-    #         men_sim_labels.append(float(tokens[2]))
-    #     first_men_labels = tf.convert_to_tensor(first_men_labels)
-    #     second_men_labels = tf.convert_to_tensor(second_men_labels)
-    #     men_sim_labels = tf.convert_to_tensor(men_sim_labels)
-    # first_men_embeddings = tf.nn.embedding_lookup(embeddings, first_men_labels)
-    # second_men_embeddings = tf.nn.embedding_lookup(embeddings, second_men_labels)
-    # men_sim_predictions = tf.losses.cosine_distance(first_men_embeddings, second_men_embeddings, axis=1, reduction=tf.losses.Reduction.NONE)
-    # men_correlation = tf.contrib.metrics.streaming_pearson_correlation(men_sim_predictions, men_sim_labels)
-    # metrics = {'MEN': men_correlation}
-    # tf.summary.scalar('MEN', men_correlation[1])
-    # return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=optimizer,
-    #                                   eval_metric_ops=metrics)
-    return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=optimizer)
+    men_correlation = get_men_correlation(params['men'], params['vocab'],
+                                          embeddings)
+    metrics = {'MEN': men_correlation}
+    tf.summary.scalar('MEN', men_correlation[1])
+    return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=optimizer,
+                                      eval_metric_ops=metrics)
+    #return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=optimizer)
 
 
 class Word2Vec():
@@ -154,6 +182,9 @@ class Word2Vec():
         self._vocab = None
         self._word_freq_dict = defaultdict(int)
         self._estimator = None
+        self._men = MEN(os.path.join(os.path.dirname(
+            os.path.dirname(__file__)), 'resources',
+                                     'MEN_dataset_natural_form_full'))
 
     @property
     def vocab_size(self):
@@ -228,7 +259,7 @@ class Word2Vec():
         sess_config.intra_op_parallelism_threads = t_num_threads
         sess_config.inter_op_parallelism_threads = t_num_threads
         run_config = tf.estimator.RunConfig(
-            session_config=sess_config, save_summary_steps=10,
+            session_config=sess_config, save_summary_steps=1,
             save_checkpoints_steps=10000, keep_checkpoint_max=3,
             log_step_count_steps=1)
         if train_mode == 'cbow':
@@ -242,15 +273,16 @@ class Word2Vec():
                     'vocab_size': self.vocab_size,
                     'embedding_size': embedding_size,
                     'num_neg_samples': num_neg_samples,
-                    'learning_rate': learning_rate
+                    'learning_rate': learning_rate,
+                    'men': self._men
                 })
         self._estimator.train(
             input_fn=lambda: self._generate_train_dataset(
                 training_data_filepath, window_size, min_count, batch_size,
                 num_epochs, p_num_threads, prefetch_batch_size,
                 flat_map_pref_batch_size), hooks=[tf.train.ProfilerHook(
-                save_steps=1, show_dataflow=True, show_memory=True,
-                output_dir=model_dirpath)])
+                    save_steps=1, show_dataflow=True, show_memory=True,
+                    output_dir=model_dirpath)])
 
     def _generate_eval_dataset(self):
         men_filepath = os.path.join(os.path.dirname(os.path.dirname(__file__)),
@@ -258,7 +290,6 @@ class Word2Vec():
                                     'MEN_dataset_natural_form_full')
         with open(men_filepath, 'r') as men_stream:
             pass
-
 
     def evaluate(self):
         """Evaluate Word2Vec against the MEN dataset."""
