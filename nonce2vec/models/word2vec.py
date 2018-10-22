@@ -155,14 +155,18 @@ class Word2Vec():
 
     @property
     def vocab_size(self):
-        """Return the number of items in vocabulary."""
-        return len(self._word_freq_dict)
+        """Return the number of items in vocabulary.
+
+        Since we use len(word_freq_dict) as the default index for UKN in
+        the index_table, we have to add 1 to the length
+        """
+        return len(self._word_freq_dict) + 1
 
     def build_vocab(self, data_filepath, vocab_filepath):
         """Create vocabulary-related data."""
         logger.info('Building vocabulary from file {}'.format(data_filepath))
         logger.info('Loading word frequencies...')
-        if self.vocab_size != 0:
+        if self.vocab_size > 1:
             logger.warning('This instance of W2V\'s vocabulary does not seem '
                            'to be empty. Erasing previously stored vocab...')
         with open(data_filepath, 'r') as data_stream:
@@ -213,7 +217,7 @@ class Word2Vec():
               p_num_threads, t_num_threads, prefetch_batch_size,
               flat_map_pref_batch_size):
         """Train Word2Vec."""
-        if self.vocab_size == 0:
+        if self.vocab_size == 1:
             raise Exception('You need to build or load a vocabulary before '
                             'training word2vec')
         if train_mode not in ('cbow', 'skipgram'):
