@@ -107,8 +107,8 @@ class Word2Vec():
                 .map(lambda tokens: extract_examples(tokens, window_size, p_num_threads), num_parallel_calls=p_num_threads)
                 .prefetch(flat_map_pref_batch_size)
                 .flat_map(lambda features, labels: tf.data.Dataset.from_tensor_slices((features, labels)))
-                .shuffle(buffer_size=shuffling_buffer_size,
-                         reshuffle_each_iteration=False)
+                # .shuffle(buffer_size=shuffling_buffer_size,
+                #          reshuffle_each_iteration=False)
                 .repeat(num_epochs)
                 .batch(batch_size)
                 .prefetch(prefetch_batch_size))
