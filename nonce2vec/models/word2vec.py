@@ -2,7 +2,7 @@
 
 import os
 
-from collections import defaultdict
+from collections import OrderedDict
 
 import logging
 
@@ -123,14 +123,14 @@ def get_tf_vocab_table(word_freq_dict, min_count):
 def get_men_correlation(men, vocab, embeddings):
     """Return spearman correlation metric on the MEN dataset."""
     left_label_embeddings = tf.nn.embedding_lookup(
-        embeddings, vocab.lookup(men.left_labels))
+        embeddings, vocab.lookup(tf.constant(men.left_labels)))
     right_label_embeddings = tf.nn.embedding_lookup(
-        embeddings, vocab.lookup(men.right_labels))
+        embeddings, vocab.lookup(tf.constant(men.right_labels)))
     sim_predictions = tf.losses.cosine_distance(
         left_label_embeddings, right_label_embeddings, axis=1,
         reduction=tf.losses.Reduction.NONE)
     return tf.contrib.metrics.streaming_pearson_correlation(
-        sim_predictions, men.sim_values)
+        sim_predictions, tf.constant(men.sim_values))
 
 
 def cbow(features, labels, mode, params):
@@ -165,8 +165,8 @@ def skipgram(features, labels, mode, params):
         with tf.contrib.compiler.jit.experimental_jit_scope():
             optimizer = (tf.train.GradientDescentOptimizer(params['learning_rate'])
                          .minimize(loss, global_step=tf.train.get_global_step()))
-    men_correlation = get_men_correlation(params['men'], params['vocab'],
-                                          embeddings)
+    vocab = get_tf_vocab_table(params['word_freq_dict'], params['min_count'])
+    men_correlation = get_men_correlation(params['men'], vocab, embeddings)
     metrics = {'MEN': men_correlation}
     tf.summary.scalar('MEN', men_correlation[1])
     return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=optimizer,
@@ -179,12 +179,8 @@ class Word2Vec():
 
     def __init__(self):
         """Initialize vocab dictionaries."""
-        self._vocab = None
-        self._word_freq_dict = defaultdict(int)
+        self._word_freq_dict = OrderedDict()  # Needs to make sure dict is ordered to always get the same lookup table
         self._estimator = None
-        self._men = MEN(os.path.join(os.path.dirname(
-            os.path.dirname(__file__)), 'resources',
-                                     'MEN_dataset_natural_form_full'))
 
     @property
     def vocab_size(self):
@@ -205,7 +201,10 @@ class Word2Vec():
         with open(data_filepath, 'r') as data_stream:
             for line in data_stream:
                 for word in line.strip().split():
-                    self._word_freq_dict[word] += 1
+                    if word not in self._word_freq_dict:
+                        self._word_freq_dict[word] = 1
+                    else:
+                        self._word_freq_dict[word] += 1
         logger.info('Saving word frequencies to file: {}'.format(vocab_filepath))
         with open(vocab_filepath, 'w') as vocab_stream:
             for key, value in self._word_freq_dict.items():
@@ -224,14 +223,13 @@ class Word2Vec():
                                 min_count, batch_size, num_epochs,
                                 p_num_threads, prefetch_batch_size,
                                 flat_map_pref_batch_size):
-        # Needs to be here to make sure everything belongs to the same graph
-        self._vocab = get_tf_vocab_table(self._word_freq_dict, min_count)
+        vocab = get_tf_vocab_table(self._word_freq_dict, min_count)
         return (tf.data.TextLineDataset(training_data_filepath)
                 .map(tf.strings.strip, num_parallel_calls=p_num_threads)
                 .filter(lambda x: tf.not_equal(tf.strings.length(x), 0))  # Filter empty strings
                 .map(lambda x: tf.strings.split([x]),
                      num_parallel_calls=p_num_threads)
-                .map(lambda x: self._vocab.lookup(x.values),
+                .map(lambda x: vocab.lookup(x.values),
                      num_parallel_calls=p_num_threads)  # discretize
                 .map(lambda tokens: extract_examples(tokens, window_size,
                                                      p_num_threads),
@@ -274,7 +272,9 @@ class Word2Vec():
                     'embedding_size': embedding_size,
                     'num_neg_samples': num_neg_samples,
                     'learning_rate': learning_rate,
-                    'men': self._men
+                    'word_freq_dict': self._word_freq_dict,
+                    'min_count': min_count,
+                    'men': MEN(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources', 'MEN_dataset_natural_form_full'))
                 })
         self._estimator.train(
             input_fn=lambda: self._generate_train_dataset(
