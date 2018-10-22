@@ -226,9 +226,9 @@ class Word2Vec():
         sess_config.intra_op_parallelism_threads = t_num_threads
         sess_config.inter_op_parallelism_threads = t_num_threads
         run_config = tf.estimator.RunConfig(
-            session_config=sess_config, save_summary_steps=100,
+            session_config=sess_config, save_summary_steps=10,
             save_checkpoints_steps=10000, keep_checkpoint_max=3,
-            log_step_count_steps=100)
+            log_step_count_steps=10)
         if train_mode == 'cbow':
             pass
         if train_mode == 'skipgram':
@@ -247,7 +247,7 @@ class Word2Vec():
                 training_data_filepath, window_size, min_count, batch_size,
                 num_epochs, p_num_threads, prefetch_batch_size,
                 flat_map_pref_batch_size), hooks=[tf.train.ProfilerHook(
-                save_steps=1000, show_dataflow=True, show_memory=True,
+                save_steps=10, show_dataflow=True, show_memory=True,
                 output_dir=model_dirpath)])
 
     def _generate_eval_dataset(self):
