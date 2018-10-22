@@ -12,8 +12,7 @@ import logging.config
 import scipy
 import tensorflow as tf
 
-#from nonce2vec.models.word2vec import Word2Vec
-from nonce2vec.models.word2vec_estimator import Word2Vec
+from nonce2vec.models.word2vec import Word2Vec
 
 import nonce2vec.utils.config as cutils
 import nonce2vec.utils.files as futils
@@ -96,7 +95,8 @@ def _train(args):
     w2v.train(args.train_mode, args.datafile, output_model_dirpath,
               args.min_count, args.batch, args.size, args.neg, args.alpha,
               args.window, args.epochs, args.sample, args.p_num_threads,
-              args.t_num_threads)
+              args.t_num_threads, args.prefetch_batch_size,
+              args.flat_map_pref_batch_size)
     #w2v.evaluate()
 
 
@@ -134,14 +134,20 @@ def main():
                               help='absolute path to training data file')
     parser_train.add_argument('--size', type=int, default=400,
                               help='vector dimensionality')
-    parser_train.add_argument('--batch', type=int, default=128,
+    parser_train.add_argument('--batch', type=int, default=20480000,
                               help='batch size')
+    parser_train.add_argument('--prefetch-batch-size', type=int, default=5,
+                              help='number of dataset items to bufferize')
+    parser_train.add_argument('--flat-map-pref-batch-size', type=int,
+                              default=1000000, help='number of items to '
+                              'bufferize before applying a flat map in '
+                              'preprocessing')
     parser_train.add_argument('--train-mode', choices=['cbow', 'skipgram'],
                               help='how to train word2vec')
     parser_train.add_argument('--outputdir', required=True,
-                              help='Absolute path to outputdir to save model')
+                              help='absolute path to outputdir to save model')
     parser_train.add_argument('--vocab',
-                              help='Absolute path to the the vocabulary file.'
+                              help='absolute path to the the vocabulary file.'
                                    'Where to load and/or save the vocabulary')
 
     parser_check = subparsers.add_parser(

@@ -27,6 +27,3 @@ loggers:
   nonce2vec.models.word2vec:
     level: DEBUG
     handlers: [console]
-    nonce2vec.models.word2vec_estimator:
-      level: DEBUG
-      handlers: [console]
