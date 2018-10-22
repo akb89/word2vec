@@ -122,15 +122,16 @@ def get_tf_vocab_table(word_freq_dict, min_count):
 
 def get_men_correlation(men, vocab, embeddings):
     """Return spearman correlation metric on the MEN dataset."""
-    left_label_embeddings = tf.nn.embedding_lookup(
-        embeddings, vocab.lookup(tf.constant(men.left_labels)))
-    right_label_embeddings = tf.nn.embedding_lookup(
-        embeddings, vocab.lookup(tf.constant(men.right_labels)))
-    sim_predictions = tf.losses.cosine_distance(
-        left_label_embeddings, right_label_embeddings, axis=1,
-        reduction=tf.losses.Reduction.NONE)
-    return tf.contrib.metrics.streaming_pearson_correlation(
-        sim_predictions, tf.constant(men.sim_values))
+    with tf.contrib.compiler.jit.experimental_jit_scope():
+        left_label_embeddings = tf.nn.embedding_lookup(
+            embeddings, vocab.lookup(tf.constant(men.left_labels)))
+        right_label_embeddings = tf.nn.embedding_lookup(
+            embeddings, vocab.lookup(tf.constant(men.right_labels)))
+        sim_predictions = tf.losses.cosine_distance(
+            left_label_embeddings, right_label_embeddings, axis=1,
+            reduction=tf.losses.Reduction.NONE)
+        return tf.contrib.metrics.streaming_pearson_correlation(
+            sim_predictions, tf.constant(men.sim_values))
 
 
 def cbow(features, labels, mode, params):
@@ -142,16 +143,19 @@ def skipgram(features, labels, mode, params):
     """Return Word2Vec Skipgram model."""
     labels = tf.reshape(labels, [-1, 1])
     with tf.name_scope('embeddings'):
-        embeddings = tf.Variable(tf.random_uniform(
-            shape=[params['vocab_size'], params['embedding_size']],
-            minval=-1.0, maxval=1.0))
-        input_embed = tf.nn.embedding_lookup(embeddings, features)
+        with tf.contrib.compiler.jit.experimental_jit_scope():
+            embeddings = tf.Variable(tf.random_uniform(
+                shape=[params['vocab_size'], params['embedding_size']],
+                minval=-1.0, maxval=1.0))
+            input_embed = tf.nn.embedding_lookup(embeddings, features)
     with tf.name_scope('weights'):
-        nce_weights = tf.Variable(tf.truncated_normal(
-            [params['vocab_size'], params['embedding_size']],
-            stddev=1.0 / math.sqrt(params['embedding_size'])))
+        with tf.contrib.compiler.jit.experimental_jit_scope():
+            nce_weights = tf.Variable(tf.truncated_normal(
+                [params['vocab_size'], params['embedding_size']],
+                stddev=1.0 / math.sqrt(params['embedding_size'])))
     with tf.name_scope('biases'):
-        nce_biases = tf.Variable(tf.zeros([params['vocab_size']]))
+        with tf.contrib.compiler.jit.experimental_jit_scope():
+            nce_biases = tf.Variable(tf.zeros([params['vocab_size']]))
     with tf.name_scope('loss'):
         with tf.contrib.compiler.jit.experimental_jit_scope():
             loss = tf.reduce_mean(
@@ -257,9 +261,9 @@ class Word2Vec():
         sess_config.intra_op_parallelism_threads = t_num_threads
         sess_config.inter_op_parallelism_threads = t_num_threads
         run_config = tf.estimator.RunConfig(
-            session_config=sess_config, save_summary_steps=1,
+            session_config=sess_config, save_summary_steps=100,
             save_checkpoints_steps=10000, keep_checkpoint_max=3,
-            log_step_count_steps=1)
+            log_step_count_steps=100)
         if train_mode == 'cbow':
             pass
         if train_mode == 'skipgram':
@@ -281,7 +285,7 @@ class Word2Vec():
                 training_data_filepath, window_size, min_count, batch_size,
                 num_epochs, p_num_threads, prefetch_batch_size,
                 flat_map_pref_batch_size), hooks=[tf.train.ProfilerHook(
-                    save_steps=1, show_dataflow=True, show_memory=True,
+                    save_steps=100, show_dataflow=True, show_memory=True,
                     output_dir=model_dirpath)])
 
     def _generate_eval_dataset(self):
