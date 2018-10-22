@@ -109,16 +109,18 @@ def skipgram(features, labels, mode, params):
     with tf.name_scope('biases'):
         nce_biases = tf.Variable(tf.zeros([params['vocab_size']]))
     with tf.name_scope('loss'):
-        loss = tf.reduce_mean(
-            tf.nn.nce_loss(weights=nce_weights,
-                           biases=nce_biases,
-                           labels=labels,
-                           inputs=input_embed,
-                           num_sampled=params['num_neg_samples'],
-                           num_classes=params['vocab_size']))
+        with tf.contrib.compiler.jit.experimental_jit_scope():
+            loss = tf.reduce_mean(
+                tf.nn.nce_loss(weights=nce_weights,
+                               biases=nce_biases,
+                               labels=labels,
+                               inputs=input_embed,
+                               num_sampled=params['num_neg_samples'],
+                               num_classes=params['vocab_size']))
     with tf.name_scope('optimizer'):
-        optimizer = (tf.train.GradientDescentOptimizer(params['learning_rate'])
-                     .minimize(loss, global_step=tf.train.get_global_step()))
+        with tf.contrib.compiler.jit.experimental_jit_scope():
+            optimizer = (tf.train.GradientDescentOptimizer(params['learning_rate'])
+                         .minimize(loss, global_step=tf.train.get_global_step()))
     men_filepath = os.path.join(os.path.dirname(os.path.dirname(__file__)),
                                 'resources', 'MEN_dataset_natural_form_full')
     # with open(men_filepath, 'r') as men_stream:
@@ -228,7 +230,7 @@ class Word2Vec():
         run_config = tf.estimator.RunConfig(
             session_config=sess_config, save_summary_steps=10,
             save_checkpoints_steps=10000, keep_checkpoint_max=3,
-            log_step_count_steps=10)
+            log_step_count_steps=1)
         if train_mode == 'cbow':
             pass
         if train_mode == 'skipgram':
@@ -247,7 +249,7 @@ class Word2Vec():
                 training_data_filepath, window_size, min_count, batch_size,
                 num_epochs, p_num_threads, prefetch_batch_size,
                 flat_map_pref_batch_size), hooks=[tf.train.ProfilerHook(
-                save_steps=10, show_dataflow=True, show_memory=True,
+                save_steps=1, show_dataflow=True, show_memory=True,
                 output_dir=model_dirpath)])
 
     def _generate_eval_dataset(self):
