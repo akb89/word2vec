@@ -107,8 +107,6 @@ class Word2Vec():
                 .map(lambda tokens: extract_examples(tokens, window_size, p_num_threads), num_parallel_calls=p_num_threads)
                 .prefetch(prefetch_batch_size*batch_size)
                 .flat_map(lambda features, labels: tf.data.Dataset.from_tensor_slices((features, labels)))
-                # .shuffle(buffer_size=shuffling_buffer_size,
-                #          reshuffle_each_iteration=False)
                 .repeat(num_epochs)
                 .batch(batch_size)
                 .prefetch(prefetch_batch_size*batch_size))
@@ -122,10 +120,9 @@ if __name__ == '__main__':
     BS = int(sys.argv[5])  # batch size
     PBS = int(sys.argv[6])  # prefetching batch size
     NE = int(sys.argv[7])  # num epochs
-    SBS = int(sys.argv[8])  # shuffling batch size
     print('-'*80)
-    print('RUNNING ON {} THREAD(S) with FMPBS = {}, BS = {}, PBS = {}, NE = {}, SBS = {}'
-          .format(PT, FMPBS, BS, PBS, NE, SBS))
+    print('RUNNING ON {} THREAD(S) with FMPBS = {}, BS = {}, PBS = {}, NE = {}'
+          .format(PT, FMPBS, BS, PBS, NE))
     tf.enable_eager_execution()
     w2v = Word2Vec()
     w2v.load_vocab(VOCAB)
@@ -143,6 +140,7 @@ if __name__ == '__main__':
         while True:
             try:
                 session.run(x)
+                time.sleep(5)
                 i += 1
             except tf.errors.OutOfRangeError:
                 end = time.monotonic()
