@@ -238,13 +238,13 @@ class Word2Vec():
                 .map(lambda tokens: extract_examples(tokens, window_size,
                                                      p_num_threads),
                      num_parallel_calls=p_num_threads)
-                .prefetch(flat_map_pref_batch_size)
+                #.prefetch(flat_map_pref_batch_size)  #flat_map_pref_batch_size should be >= batch_size?
                 .flat_map(lambda features, labels: tf.data.Dataset.from_tensor_slices((features, labels)))
                 # .shuffle(buffer_size=shuffling_buffer_size,
                 #          reshuffle_each_iteration=False)
                 .repeat(num_epochs)
-                .batch(batch_size)
-                .prefetch(prefetch_batch_size))
+                .batch(batch_size))
+                #.prefetch(prefetch_batch_size))  # prefetch_batch_size should be >= batch_size?
 
     def train(self, train_mode, training_data_filepath, model_dirpath,
               min_count, batch_size, embedding_size, num_neg_samples,
