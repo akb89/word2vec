@@ -134,7 +134,7 @@ def main():
                               help='absolute path to training data file')
     parser_train.add_argument('--size', type=int, default=400,
                               help='vector dimensionality')
-    parser_train.add_argument('--batch', type=int, default=10240000,
+    parser_train.add_argument('--batch', type=int, default=1048576,
                               help='batch size')
     parser_train.add_argument('--prefetch-batch-size', type=int, default=10,
                               help='number of dataset items to bufferize')
