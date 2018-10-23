@@ -106,7 +106,8 @@ class Word2Vec():
                 .prefetch(prefetch_batch_size*batch_size)
                 .flat_map(lambda features, labels: tf.data.Dataset.from_tensor_slices((features, labels)))
                 .repeat(num_epochs)
-                .batch(batch_size))
+                .batch(batch_size)
+                .prefetch(prefetch_batch_size*batch_size))
 
 
 if __name__ == '__main__':
