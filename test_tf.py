@@ -32,9 +32,7 @@ class Word2Vec():
 
     def _generate_train_dataset(self, training_data_filepath, window_size,
                                 min_count, batch_size, num_epochs,
-                                p_num_threads, shuffling_buffer_size=1,
-                                prefetch_batch_size=1,
-                                flat_map_pref_batch_size=1):
+                                p_num_threads, prefetch_batch_size=1):
         # Needs to be here to make sure everything belongs to the same graph
         self._vocab = self._get_tf_vocab_table(self._word_freq_dict, min_count)
         tf.tables_initializer().run()
@@ -116,21 +114,18 @@ if __name__ == '__main__':
     TDF = sys.argv[1]
     VOCAB = sys.argv[2]
     PT = int(sys.argv[3])  # preprocessing threads
-    FMPBS = int(sys.argv[4])  # flat map prefetch batch size
-    BS = int(sys.argv[5])  # batch size
-    PBS = int(sys.argv[6])  # prefetching batch size
-    NE = int(sys.argv[7])  # num epochs
+    BS = int(sys.argv[4])  # batch size
+    PBS = int(sys.argv[5])  # prefetching batch size
+    NE = int(sys.argv[6])  # num epochs
     print('-'*80)
-    print('RUNNING ON {} THREAD(S) with FMPBS = {}, BS = {}, PBS = {}, NE = {}'
-          .format(PT, FMPBS, BS, PBS, NE))
+    print('RUNNING ON {} THREAD(S) with BS = {}, PBS = {}, NE = {}'.format(PT, BS, PBS, NE))
     tf.enable_eager_execution()
     w2v = Word2Vec()
     w2v.load_vocab(VOCAB)
     WIN = 5  # window size
     MINC = 1  # min count
     with tf.Session(graph=tf.Graph()) as session:
-        dataset = w2v._generate_train_dataset(TDF, WIN, MINC, BS, NE, PT, SBS,
-                                              PBS, FMPBS)
+        dataset = w2v._generate_train_dataset(TDF, WIN, MINC, BS, NE, PT, PBS)
         iterator = dataset.make_initializable_iterator()
         init_op = iterator.initializer
         x = iterator.get_next()
