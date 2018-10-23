@@ -134,12 +134,12 @@ def main():
                               help='absolute path to training data file')
     parser_train.add_argument('--size', type=int, default=400,
                               help='vector dimensionality')
-    parser_train.add_argument('--batch', type=int, default=20480000,
+    parser_train.add_argument('--batch', type=int, default=10240000,
                               help='batch size')
-    parser_train.add_argument('--prefetch-batch-size', type=int, default=5,
+    parser_train.add_argument('--prefetch-batch-size', type=int, default=10,
                               help='number of dataset items to bufferize')
     parser_train.add_argument('--flat-map-pref-batch-size', type=int,
-                              default=1000000, help='number of items to '
+                              default=1, help='number of items to '
                               'bufferize before applying a flat map in '
                               'preprocessing')
     parser_train.add_argument('--train-mode', choices=['cbow', 'skipgram'],
