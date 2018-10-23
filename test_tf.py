@@ -134,7 +134,6 @@ if __name__ == '__main__':
         while True:
             try:
                 session.run(x)
-                time.sleep(5)
                 i += 1
             except tf.errors.OutOfRangeError:
                 end = time.monotonic()
