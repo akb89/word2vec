@@ -9,9 +9,6 @@ import argparse
 import logging
 import logging.config
 
-import scipy
-import tensorflow as tf
-
 from nonce2vec.models.word2vec import Word2Vec
 
 import nonce2vec.utils.config as cutils
@@ -22,49 +19,6 @@ logging.config.dictConfig(
         os.path.join(os.path.dirname(__file__), 'logging', 'logging.yml')))
 
 logger = logging.getLogger(__name__)
-
-# Note: this is scipy's spearman, without tie adjustment
-def _spearman(x, y):
-    return scipy.stats.spearmanr(x, y)[0]
-
-
-def _get_men_pairs_and_sim(men_dataset):
-    pairs = []
-    humans = []
-    with open(men_dataset, 'r') as men_stream:
-        for line in men_stream:
-            items = line.rstrip('\n').split()
-            pairs.append((items[0], items[1]))
-            humans.append(float(items[2]))
-    return pairs, humans
-
-
-def _check_men(args):
-    logger.info('Checking embeddings quality against MEN similarity ratings')
-    pairs, humans = _get_men_pairs_and_sim(args.men_dataset)
-    logger.info('Loading word2vec model from {}'.format(args.model_dirpath))
-    with tf.Session() as session:
-        saver = tf.train.import_meta_graph(os.path.join(args.model_dirpath, 'model.meta'))
-        saver.restore(session, tf.train.latest_checkpoint(args.model_dirpath))
-        graph = tf.get_default_graph()
-        #print([n.name for n in tf.get_default_graph().as_graph_def().node])
-        embeddings = graph.get_tensor_by_name('embeddings/Variable:0')
-    # logger.info('Model loaded')
-    # system_actual = []
-    # human_actual = []  # This is needed because we may not be able to
-    #                    # calculate cosine for all pairs
-    # count = 0
-    # for (first, second), human in zip(pairs, humans):
-    #     if first not in model.wv.vocab or second not in model.wv.vocab:
-    #         logger.error('Could not find one of more pair item in model '
-    #                      'vocabulary: {}, {}'.format(first, second))
-    #         continue
-    #     sim = _cosine_similarity(model.wv[first], model.wv[second])
-    #     system_actual.append(sim)
-    #     human_actual.append(human)
-    #     count += 1
-    # spr = _spearman(human_actual, system_actual)
-    # logger.info('SPEARMAN: {} calculated over {} items'.format(spr, count))
 
 
 def _train(args):
@@ -149,16 +103,5 @@ def main():
     parser_train.add_argument('--vocab',
                               help='absolute path to the the vocabulary file.'
                                    'Where to load and/or save the vocabulary')
-
-    parser_check = subparsers.add_parser(
-        'check', formatter_class=argparse.RawTextHelpFormatter,
-        help='check w2v embeddings quality by calculating correlation with '
-             'the similarity ratings in the MEN dataset.')
-    parser_check.set_defaults(func=_check_men)
-    parser_check.add_argument('--data', required=True, dest='men_dataset',
-                              help='absolute path to dataset')
-    parser_check.add_argument('--model', required=True, dest='model_dirpath',
-                              help='absolute path to the directory where the '
-                                   'Tensorflow model data are stored')
     args = parser.parse_args()
     args.func(args)
