@@ -257,9 +257,10 @@ class Word2Vec():
                             'training word2vec')
         if train_mode not in ('cbow', 'skipgram'):
             raise Exception('Unsupported train_mode \'{}\''.format(train_mode))
-        sess_config = tf.ConfigProto()
+        sess_config = tf.ConfigProto(log_device_placement=True)
         sess_config.intra_op_parallelism_threads = t_num_threads
         sess_config.inter_op_parallelism_threads = t_num_threads
+        sess_config.graph_options.optimizer_options.global_jit_level = tf.OptimizerOptions.ON_1  # JIT compilation on GPU
         run_config = tf.estimator.RunConfig(
             session_config=sess_config, save_summary_steps=100,
             save_checkpoints_steps=10000, keep_checkpoint_max=3,
