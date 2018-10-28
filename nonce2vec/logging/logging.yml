@@ -19,11 +19,11 @@ loggers:
     level: INFO
     handlers: [console]
   nonce2vec.models.informativeness:
-    level: DEBUG
+    level: INFO
     handlers: [console]
   nonce2vec.models.nonce2vec:
-    level: DEBUG
+    level: INFO
     handlers: [console]
   nonce2vec.models.word2vec:
-    level: DEBUG
+    level: INFO
     handlers: [console]

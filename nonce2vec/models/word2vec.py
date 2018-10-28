@@ -115,9 +115,10 @@ def get_tf_vocab_table(word_freq_dict, min_count):
     """Return a TF lookup.index_table built from the word_freq_dict."""
     mapping_strings = tf.constant(
         [word for (word, freq) in word_freq_dict.items() if freq >= min_count])
-    return tf.contrib.lookup.index_table_from_tensor(
-        mapping=mapping_strings, num_oov_buckets=0,
-        default_value=len(word_freq_dict))
+    with tf.name_scope('vocab'):
+        return tf.contrib.lookup.index_table_from_tensor(
+            mapping=mapping_strings, num_oov_buckets=0,
+            default_value=len(word_freq_dict))
 
 
 def get_men_correlation(men, vocab, embeddings):
@@ -141,13 +142,20 @@ def cbow(features, labels, mode, params):
 
 def skipgram(features, labels, mode, params):
     """Return Word2Vec Skipgram model."""
-    labels = tf.reshape(labels, [-1, 1])
     with tf.name_scope('embeddings'):
         with tf.contrib.compiler.jit.experimental_jit_scope():
             embeddings = tf.Variable(tf.random_uniform(
                 shape=[params['vocab_size'], params['embedding_size']],
                 minval=-1.0, maxval=1.0))
-            input_embed = tf.nn.embedding_lookup(embeddings, features)
+            # embeddings = tf.get_variable('embeddings', initializer=tf.random_uniform(
+            #     shape=[params['vocab_size'], params['embedding_size']],
+            #     minval=-1.0, maxval=1.0))
+            features_embeddings = tf.nn.embedding_lookup(embeddings, features)
+    if mode == tf.estimator.ModeKeys.PREDICT:
+        predictions = {
+            'embedding': features_embeddings,
+        }
+        return tf.estimator.EstimatorSpec(mode, predictions=predictions)
     with tf.name_scope('weights'):
         with tf.contrib.compiler.jit.experimental_jit_scope():
             nce_weights = tf.Variable(tf.truncated_normal(
@@ -161,21 +169,24 @@ def skipgram(features, labels, mode, params):
             loss = tf.reduce_mean(
                 tf.nn.nce_loss(weights=nce_weights,
                                biases=nce_biases,
-                               labels=labels,
-                               inputs=input_embed,
+                               labels=tf.reshape(labels, [-1, 1]),
+                               inputs=features_embeddings,
                                num_sampled=params['num_neg_samples'],
                                num_classes=params['vocab_size']))
-    with tf.name_scope('optimizer'):
-        with tf.contrib.compiler.jit.experimental_jit_scope():
-            optimizer = (tf.train.GradientDescentOptimizer(params['learning_rate'])
-                         .minimize(loss, global_step=tf.train.get_global_step()))
+
     vocab = get_tf_vocab_table(params['word_freq_dict'], params['min_count'])
     men_correlation = get_men_correlation(params['men'], vocab, embeddings)
     metrics = {'MEN': men_correlation}
     tf.summary.scalar('MEN', men_correlation[1])
-    return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=optimizer,
-                                      eval_metric_ops=metrics)
-    #return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=optimizer)
+    if mode == tf.estimator.ModeKeys.EVAL:
+        return tf.estimator.EstimatorSpec(mode, loss=loss,
+                                          eval_metric_ops=metrics)
+
+    with tf.name_scope('optimizer'):
+        with tf.contrib.compiler.jit.experimental_jit_scope():
+            optimizer = (tf.train.GradientDescentOptimizer(params['learning_rate'])
+                         .minimize(loss, global_step=tf.train.get_global_step()))
+    return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=optimizer)
 
 
 class Word2Vec():
@@ -185,6 +196,7 @@ class Word2Vec():
         """Initialize vocab dictionaries."""
         self._word_freq_dict = OrderedDict()  # Needs to make sure dict is ordered to always get the same lookup table
         self._estimator = None
+        self._men = MEN(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources', 'MEN_dataset_natural_form_full'))
 
     @property
     def vocab_size(self):
@@ -290,14 +302,27 @@ class Word2Vec():
                     output_dir=model_dirpath)])
 
     def _generate_eval_dataset(self):
-        men_filepath = os.path.join(os.path.dirname(os.path.dirname(__file__)),
-                                    'resources',
-                                    'MEN_dataset_natural_form_full')
-        with open(men_filepath, 'r') as men_stream:
-            pass
+        return tf.data.Dataset.from_tensor_slices((tf.constant([[0]]), tf.constant([[0]])))
 
-    def evaluate(self):
+    def evaluate(self, model_dirpath, train_mode, embedding_size,
+                 num_neg_samples, learning_rate, min_count):
         """Evaluate Word2Vec against the MEN dataset."""
-        eval_result = self._estimator.evaluate(
-            input_fn=self._generate_eval_dataset)
-        logger.info('MEN correlation ratio: {}'.format(**eval_result))
+        if self.vocab_size == 1:
+            raise Exception('You need to build or load a vocabulary before '
+                            'training word2vec')
+        if train_mode not in ('cbow', 'skipgram'):
+            raise Exception('Unsupported train_mode \'{}\''.format(train_mode))
+        estimator = tf.estimator.Estimator(
+            model_fn=skipgram,
+            params={
+                'vocab_size': self.vocab_size,
+                'embedding_size': embedding_size,
+                'num_neg_samples': num_neg_samples,
+                'learning_rate': learning_rate,
+                'word_freq_dict': self._word_freq_dict,
+                'min_count': min_count,
+                'men': MEN(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources', 'MEN_dataset_natural_form_full'))
+            },
+            warm_start_from=model_dirpath)
+        eval_result = estimator.evaluate(input_fn=self._generate_eval_dataset)
+        logger.info('MEN correlation ratio: {}'.format(eval_result['MEN']))
