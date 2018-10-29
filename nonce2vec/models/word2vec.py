@@ -105,5 +105,5 @@ class Word2Vec():
                 input_fn=lambda: skipgram.get_train_dataset(
                     training_data_filepath, window_size, batch_size,
                     num_epochs, p_num_threads), hooks=[tf.train.ProfilerHook(
-                        save_steps=100, show_dataflow=True, show_memory=True,
-                        output_dir=model_dirpath)])
+                        save_steps=save_summary_steps, show_dataflow=True,
+                        show_memory=True, output_dir=model_dirpath)])
