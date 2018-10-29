@@ -3,184 +3,16 @@
 import os
 
 from collections import OrderedDict
-
 import logging
-
-import math
 import tensorflow as tf
+
+import nonce2vec.learning.skipgram as skipgram
+
+from nonce2vec.evaluation.men import MEN
 
 logger = logging.getLogger(__name__)
 
 __all__ = ('Word2Vec')
-
-
-class MEN():
-    """A class to store MEN examples."""
-
-    def __init__(self, men_filepath):
-        """Load MEN labels and similarity metrics from file."""
-        with open(men_filepath, 'r') as men_stream:
-            self._left_labels = []
-            self._right_labels = []
-            self._sim_values = []
-            for line in men_stream:
-                tokens = line.strip().split()
-                self._left_labels.append(tokens[0])
-                self._right_labels.append(tokens[1])
-                self._sim_values.append(float(tokens[2]))
-
-    @property
-    def left_labels(self):
-        """Return all MEN left word labels as a list of strings."""
-        return self._left_labels
-
-    @property
-    def right_labels(self):
-        """Return all MEN right word labels as a list of strings."""
-        return self._right_labels
-
-    @property
-    def sim_values(self):
-        """Return all MEN similarity values as a list of floats."""
-        return self._sim_values
-
-
-def ctx_idxx(target_idx, window_size, tokens):
-    """
-    # Get the idx corresponding to target-idx in the ctx_range:
-    if target_idx - window_size <= 0:
-        idx = target_idx
-    if target_idx - window_size > 0:
-        idx = window_size
-    # We would like to return the ctx_range minus the idx, to remove the target:
-    return ctx_range[0:idx] + ctx_range[idx+1:]
-    # Let us now handle all the edge cases:
-    if idx == 0 and idx+1 < len(ctx_range):
-        return ctx_range[idx+1:]
-    if idx > 0 and idx + 1 == len(ctx_range):
-        return ctx_range[0:idx]
-    if idx > 0 and idx+1 < len(ctx_range):
-        return ctx_range[0:idx] + ctx_range[idx+1:]
-    """
-    ctx_range = tf.range(start=tf.maximum(tf.constant(0, dtype=tf.int32),
-                                          target_idx-window_size),
-                         limit=tf.minimum(tf.size(tokens, out_type=tf.int32),
-                                          target_idx+window_size+1),
-                         delta=1, dtype=tf.int32)
-    idx = tf.case({tf.less_equal(target_idx, window_size): lambda: target_idx,
-                   tf.greater(target_idx, window_size): lambda: window_size},
-                  exclusive=True)
-    t0 = lambda: tf.constant([], dtype=tf.int32)
-    t1 = lambda: ctx_range[idx+1:]
-    t2 = lambda: ctx_range[0:idx]
-    t3 = lambda: tf.concat([ctx_range[0:idx], ctx_range[idx+1:]], axis=0)
-    c1 = tf.logical_and(tf.equal(idx, 0),
-                        tf.less(idx+1, tf.size(ctx_range, out_type=tf.int32)))
-    c2 = tf.logical_and(tf.greater(idx, 0),
-                        tf.equal(idx+1, tf.size(ctx_range, out_type=tf.int32)))
-    c3 = tf.logical_and(tf.greater(idx, 0),
-                        tf.less(idx+1, tf.size(ctx_range, out_type=tf.int32)))
-    return tf.case({c1: t1, c2: t2, c3: t3}, default=t0, exclusive=True)
-
-
-def stack_to_features_and_labels(features, labels, target_idx, tokens,
-                                 window_size):
-    ctxs = ctx_idxx(target_idx, window_size, tokens)
-    label = tf.gather(tokens, ctxs)
-    feature = tf.fill([tf.size(label)], tokens[target_idx])
-    return tf.concat([features, feature], axis=0), \
-           tf.concat([labels, label], axis=0), target_idx+1, tokens, window_size
-
-
-def extract_examples(tokens, window_size, p_num_threads):
-    features = tf.constant([], dtype=tf.string)
-    labels = tf.constant([], dtype=tf.string)
-    target_idx = tf.constant(0, dtype=tf.int32)
-    window_size = tf.constant(window_size, dtype=tf.int32)
-    max_size = tf.size(tokens, out_type=tf.int32)
-    target_idx_less_than_tokens_size = lambda w, x, y, z, k: tf.less(y, max_size)
-    result = tf.while_loop(
-        cond=target_idx_less_than_tokens_size,
-        body=stack_to_features_and_labels,
-        loop_vars=[features, labels, target_idx, tokens, window_size],
-        shape_invariants=[tf.TensorShape([None]), tf.TensorShape([None]),
-                          target_idx.get_shape(), tokens.get_shape(),
-                          window_size.get_shape()],
-        parallel_iterations=p_num_threads)
-    return result[0], result[1]
-
-
-def get_tf_vocab_table(word_freq_dict, min_count):
-    """Return a TF lookup.index_table built from the word_freq_dict."""
-    mapping_strings = tf.constant(
-        [word for (word, freq) in word_freq_dict.items() if freq >= min_count])
-    with tf.name_scope('vocab'):
-        return tf.contrib.lookup.index_table_from_tensor(
-            mapping=mapping_strings, num_oov_buckets=0,
-            default_value=len(word_freq_dict))
-
-
-def get_men_correlation(men, vocab, embeddings):
-    """Return spearman correlation metric on the MEN dataset."""
-    with tf.contrib.compiler.jit.experimental_jit_scope():
-        left_label_embeddings = tf.nn.embedding_lookup(
-            embeddings, vocab.lookup(tf.constant(men.left_labels)))
-        right_label_embeddings = tf.nn.embedding_lookup(
-            embeddings, vocab.lookup(tf.constant(men.right_labels)))
-        sim_predictions = tf.losses.cosine_distance(
-            left_label_embeddings, right_label_embeddings, axis=1,
-            reduction=tf.losses.Reduction.NONE)
-        return tf.contrib.metrics.streaming_pearson_correlation(
-            sim_predictions, tf.constant(men.sim_values))
-
-
-def cbow(features, labels, mode, params):
-    """Return Word2Vec CBOW model."""
-    pass
-
-
-def skipgram(features, labels, mode, params):
-    """Return Word2Vec Skipgram model."""
-    with tf.contrib.compiler.jit.experimental_jit_scope():
-        vocab = get_tf_vocab_table(params['word_freq_dict'], params['min_count'])
-        features = vocab.lookup(features)
-        labels = vocab.lookup(labels)
-        with tf.name_scope('hidden'):
-            embeddings = tf.get_variable(
-                'embeddings', shape=[params['vocab_size'], params['embedding_size']],
-                initializer=tf.random_uniform_initializer(minval=-1.0, maxval=1.0))
-
-        embedded_feat = tf.nn.embedding_lookup(embeddings, features)
-
-        with tf.name_scope('weights'):
-            nce_weights = tf.get_variable(
-                'nce_weights', shape=[params['vocab_size'], params['embedding_size']],
-                initializer=tf.truncated_normal_initializer(
-                    stddev=1.0 / math.sqrt(params['embedding_size'])))
-
-        with tf.name_scope('biases'):
-            nce_biases = tf.get_variable('nce_biases', shape=[params['vocab_size']],
-                                         initializer=tf.zeros_initializer)
-
-        with tf.name_scope('loss'):
-            loss = tf.reduce_mean(
-                tf.nn.nce_loss(weights=nce_weights,
-                               biases=nce_biases,
-                               labels=tf.reshape(labels, [-1, 1]),
-                               inputs=embedded_feat,
-                               num_sampled=params['num_neg_samples'],
-                               num_classes=params['vocab_size']))
-
-        men_correlation = get_men_correlation(params['men'], vocab, embeddings)
-        metrics = {'MEN': men_correlation}
-        tf.summary.scalar('MEN', men_correlation[1])
-
-        with tf.name_scope('optimizer'):
-            optimizer = (tf.train.GradientDescentOptimizer(params['learning_rate'])
-                         .minimize(loss, global_step=tf.train.get_global_step()))
-
-        return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=optimizer,
-                                          eval_metric_ops=metrics)
 
 
 class Word2Vec():
@@ -188,9 +20,9 @@ class Word2Vec():
 
     def __init__(self):
         """Initialize vocab dictionaries."""
-        self._word_freq_dict = OrderedDict()  # Needs to make sure dict is ordered to always get the same lookup table
-        self._estimator = None
-        self._men = MEN(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources', 'MEN_dataset_natural_form_full'))
+        # Needs to make sure dict is ordered to always get the same
+        # lookup table
+        self._word_freq_dict = OrderedDict()
 
     @property
     def vocab_size(self):
@@ -229,27 +61,12 @@ class Word2Vec():
                 word_freq = line.strip().split('\t', 1)
                 self._word_freq_dict[word_freq[0]] = int(word_freq[1])
 
-    def _generate_train_dataset(self, training_data_filepath, window_size,
-                                min_count, batch_size, num_epochs,
-                                p_num_threads, prefetch_batch_size,
-                                flat_map_pref_batch_size):
-        return (tf.data.TextLineDataset(training_data_filepath)
-                .map(tf.strings.strip, num_parallel_calls=p_num_threads)
-                .filter(lambda x: tf.not_equal(tf.strings.length(x), 0))  # Filter empty strings
-                .map(lambda x: tf.strings.split([x]),
-                     num_parallel_calls=p_num_threads)
-                .map(lambda x: extract_examples(x.values, window_size,
-                                                p_num_threads),
-                     num_parallel_calls=p_num_threads)
-                .flat_map(lambda features, labels: tf.data.Dataset.from_tensor_slices((features, labels)))
-                .repeat(num_epochs)
-                .batch(batch_size))
-
     def train(self, train_mode, training_data_filepath, model_dirpath,
               min_count, batch_size, embedding_size, num_neg_samples,
               learning_rate, window_size, num_epochs, subsampling_rate,
-              p_num_threads, t_num_threads, prefetch_batch_size,
-              flat_map_pref_batch_size):
+              p_num_threads, t_num_threads, save_summary_steps,
+              save_checkpoints_steps, keep_checkpoint_max,
+              log_step_count_steps):
         """Train Word2Vec."""
         if self.vocab_size == 1:
             raise Exception('You need to build or load a vocabulary before '
@@ -259,16 +76,18 @@ class Word2Vec():
         sess_config = tf.ConfigProto(log_device_placement=True)
         sess_config.intra_op_parallelism_threads = t_num_threads
         sess_config.inter_op_parallelism_threads = t_num_threads
-        sess_config.graph_options.optimizer_options.global_jit_level = tf.OptimizerOptions.ON_1  # JIT compilation on GPU
+        sess_config.graph_options.optimizer_options.global_jit_level = \
+         tf.OptimizerOptions.ON_1  # JIT compilation on GPU
         run_config = tf.estimator.RunConfig(
-            session_config=sess_config, save_summary_steps=100,
-            save_checkpoints_steps=10000, keep_checkpoint_max=3,
-            log_step_count_steps=100)
+            session_config=sess_config, save_summary_steps=save_summary_steps,
+            save_checkpoints_steps=save_checkpoints_steps,
+            keep_checkpoint_max=keep_checkpoint_max,
+            log_step_count_steps=log_step_count_steps)
         if train_mode == 'cbow':
             pass
         if train_mode == 'skipgram':
-            self._estimator = tf.estimator.Estimator(
-                model_fn=skipgram,
+            estimator = tf.estimator.Estimator(
+                model_fn=skipgram.get_model,
                 model_dir=model_dirpath,
                 config=run_config,
                 params={
@@ -278,38 +97,13 @@ class Word2Vec():
                     'learning_rate': learning_rate,
                     'word_freq_dict': self._word_freq_dict,
                     'min_count': min_count,
-                    'men': MEN(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources', 'MEN_dataset_natural_form_full'))
+                    'men': MEN(os.path.join(
+                        os.path.dirname(os.path.dirname(__file__)),
+                        'resources', 'MEN_dataset_natural_form_full'))
                 })
-        self._estimator.train(
-            input_fn=lambda: self._generate_train_dataset(
-                training_data_filepath, window_size, min_count, batch_size,
-                num_epochs, p_num_threads, prefetch_batch_size,
-                flat_map_pref_batch_size), hooks=[tf.train.ProfilerHook(
-                    save_steps=100, show_dataflow=True, show_memory=True,
-                    output_dir=model_dirpath)])
-
-    def _generate_eval_dataset(self):
-        return tf.data.Dataset.from_tensor_slices((tf.constant([[0]]), tf.constant([[0]])))
-
-    def evaluate(self, model_dirpath, train_mode, embedding_size,
-                 num_neg_samples, learning_rate, min_count):
-        """Evaluate Word2Vec against the MEN dataset."""
-        if self.vocab_size == 1:
-            raise Exception('You need to build or load a vocabulary before '
-                            'training word2vec')
-        if train_mode not in ('cbow', 'skipgram'):
-            raise Exception('Unsupported train_mode \'{}\''.format(train_mode))
-        estimator = tf.estimator.Estimator(
-            model_fn=skipgram,
-            params={
-                'vocab_size': self.vocab_size,
-                'embedding_size': embedding_size,
-                'num_neg_samples': num_neg_samples,
-                'learning_rate': learning_rate,
-                'word_freq_dict': self._word_freq_dict,
-                'min_count': min_count,
-                'men': MEN(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources', 'MEN_dataset_natural_form_full'))
-            },
-            warm_start_from=model_dirpath)
-        eval_result = estimator.evaluate(input_fn=self._generate_eval_dataset)
-        logger.info('MEN correlation ratio: {}'.format(eval_result['MEN']))
+            estimator.train(
+                input_fn=lambda: skipgram.get_train_dataset(
+                    training_data_filepath, window_size, batch_size,
+                    num_epochs, p_num_threads), hooks=[tf.train.ProfilerHook(
+                        save_steps=100, show_dataflow=True, show_memory=True,
+                        output_dir=model_dirpath)])
