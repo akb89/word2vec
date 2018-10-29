@@ -62,24 +62,24 @@ def ctx_idxx(target_idx, window_size, tokens):
     if idx > 0 and idx+1 < len(ctx_range):
         return ctx_range[0:idx] + ctx_range[idx+1:]
     """
-    ctx_range = tf.range(start=tf.maximum(tf.constant(0, dtype=tf.int64),
+    ctx_range = tf.range(start=tf.maximum(tf.constant(0, dtype=tf.int32),
                                           target_idx-window_size),
-                         limit=tf.minimum(tf.size(tokens, out_type=tf.int64),
+                         limit=tf.minimum(tf.size(tokens, out_type=tf.int32),
                                           target_idx+window_size+1),
-                         delta=1, dtype=tf.int64)
+                         delta=1, dtype=tf.int32)
     idx = tf.case({tf.less_equal(target_idx, window_size): lambda: target_idx,
                    tf.greater(target_idx, window_size): lambda: window_size},
                   exclusive=True)
-    t0 = lambda: tf.constant([], dtype=tf.int64)
+    t0 = lambda: tf.constant([], dtype=tf.int32)
     t1 = lambda: ctx_range[idx+1:]
     t2 = lambda: ctx_range[0:idx]
     t3 = lambda: tf.concat([ctx_range[0:idx], ctx_range[idx+1:]], axis=0)
     c1 = tf.logical_and(tf.equal(idx, 0),
-                        tf.less(idx+1, tf.size(ctx_range, out_type=tf.int64)))
+                        tf.less(idx+1, tf.size(ctx_range, out_type=tf.int32)))
     c2 = tf.logical_and(tf.greater(idx, 0),
-                        tf.equal(idx+1, tf.size(ctx_range, out_type=tf.int64)))
+                        tf.equal(idx+1, tf.size(ctx_range, out_type=tf.int32)))
     c3 = tf.logical_and(tf.greater(idx, 0),
-                        tf.less(idx+1, tf.size(ctx_range, out_type=tf.int64)))
+                        tf.less(idx+1, tf.size(ctx_range, out_type=tf.int32)))
     return tf.case({c1: t1, c2: t2, c3: t3}, default=t0, exclusive=True)
 
 
@@ -93,13 +93,11 @@ def stack_to_features_and_labels(features, labels, target_idx, tokens,
 
 
 def extract_examples(tokens, window_size, p_num_threads):
-    # features = tf.constant([], dtype=tf.int64)
-    # labels = tf.constant([], dtype=tf.int64)
     features = tf.constant([], dtype=tf.string)
     labels = tf.constant([], dtype=tf.string)
-    target_idx = tf.constant(0, dtype=tf.int64)
-    window_size = tf.constant(window_size, dtype=tf.int64)
-    max_size = tf.size(tokens, out_type=tf.int64)
+    target_idx = tf.constant(0, dtype=tf.int32)
+    window_size = tf.constant(window_size, dtype=tf.int32)
+    max_size = tf.size(tokens, out_type=tf.int32)
     target_idx_less_than_tokens_size = lambda w, x, y, z, k: tf.less(y, max_size)
     result = tf.while_loop(
         cond=target_idx_less_than_tokens_size,
@@ -173,7 +171,6 @@ def skipgram(features, labels, mode, params):
                                num_sampled=params['num_neg_samples'],
                                num_classes=params['vocab_size']))
 
-        #vocab = get_tf_vocab_table(params['word_freq_dict'], params['min_count'])
         men_correlation = get_men_correlation(params['men'], vocab, embeddings)
         metrics = {'MEN': men_correlation}
         tf.summary.scalar('MEN', men_correlation[1])
@@ -236,27 +233,17 @@ class Word2Vec():
                                 min_count, batch_size, num_epochs,
                                 p_num_threads, prefetch_batch_size,
                                 flat_map_pref_batch_size):
-        #vocab = get_tf_vocab_table(self._word_freq_dict, min_count)
         return (tf.data.TextLineDataset(training_data_filepath)
                 .map(tf.strings.strip, num_parallel_calls=p_num_threads)
                 .filter(lambda x: tf.not_equal(tf.strings.length(x), 0))  # Filter empty strings
                 .map(lambda x: tf.strings.split([x]),
                      num_parallel_calls=p_num_threads)
-                # .map(lambda x: vocab.lookup(x.values),
-                #      num_parallel_calls=p_num_threads)  # discretize
-                # .map(lambda tokens: extract_examples(tokens, window_size,
-                #                                      p_num_threads),
-                #      num_parallel_calls=p_num_threads)
                 .map(lambda x: extract_examples(x.values, window_size,
                                                 p_num_threads),
                      num_parallel_calls=p_num_threads)
-                #.prefetch(flat_map_pref_batch_size)  #flat_map_pref_batch_size should be >= batch_size?
                 .flat_map(lambda features, labels: tf.data.Dataset.from_tensor_slices((features, labels)))
-                # .shuffle(buffer_size=shuffling_buffer_size,
-                #          reshuffle_each_iteration=False)
                 .repeat(num_epochs)
                 .batch(batch_size))
-                #.prefetch(prefetch_batch_size))  # prefetch_batch_size should be >= batch_size?
 
     def train(self, train_mode, training_data_filepath, model_dirpath,
               min_count, batch_size, embedding_size, num_neg_samples,
