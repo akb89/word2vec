@@ -20,10 +20,11 @@ setup(
     url='https://github.com/minimalparts/nonce2vec',
     download_url='https://github.com/minimalparts/nonce2vec/archive/2.0.0.tar.gz',
     license='MIT',
-    keywords=['word2vec', 'embeddings', 'nonce', 'one-shot'],
+    keywords=['word2vec', 'embeddings', 'nonce', 'one-shot', 'incremental'],
     platforms=['any'],
     packages=['nonce2vec', 'nonce2vec.utils', 'nonce2vec.models',
-              'nonce2vec.exceptions', 'nonce2vec.logging'],
+              'nonce2vec.exceptions', 'nonce2vec.logging',
+              'nonce2vec.learning', 'nonce2vec.evaluation'],
     package_data={'nonce2vec': ['logging/*.yml', 'resources/*']},
     include_package_data=True,
     entry_points={
