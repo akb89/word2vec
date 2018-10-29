@@ -29,7 +29,8 @@ def _train(args):
                                                     args.alpha, args.neg,
                                                     args.window, args.sample,
                                                     args.epochs,
-                                                    args.min_count, args.size)
+                                                    args.min_count, args.size,
+                                                    args.batch)
     w2v = Word2Vec()
     if not args.vocab or (args.vocab and not os.path.exists(args.vocab)):
         if not args.datafile:

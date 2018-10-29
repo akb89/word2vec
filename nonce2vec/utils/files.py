@@ -20,11 +20,12 @@ def get_batches_filepath(data_filepath, batch_size, model_dirpath):
 
 
 def get_model_dirpath(datadir, outputdir, train_mode, alpha, neg, window_size,
-                      sample, epochs, min_count, size):
+                      sample, epochs, min_count, size, batch):
     """Return absolute path to w2v model directory."""
     model_dirpath = os.path.join(
-        outputdir, '{}.{}.alpha{}.neg{}.win{}.sample{}.epochs{}.mincount{}.size{}'
-                   .format(os.path.basename(datadir), train_mode, alpha, neg,
-                           window_size, sample, epochs, min_count, size))
+        outputdir,
+        '{}.{}.alpha{}.neg{}.win{}.sample{}.epochs{}.mincount{}.size{}.batch{}'
+        .format(os.path.basename(datadir), train_mode, alpha, neg, window_size,
+                sample, epochs, min_count, size, batch))
     os.makedirs(model_dirpath, exist_ok=True)
     return model_dirpath
