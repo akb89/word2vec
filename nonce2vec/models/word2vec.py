@@ -86,7 +86,6 @@ def ctx_idxx(target_idx, window_size, tokens):
 def stack_to_features_and_labels(features, labels, target_idx, tokens,
                                  window_size):
     ctxs = ctx_idxx(target_idx, window_size, tokens)
-    #label = tf.nn.embedding_lookup(tokens, ctxs)
     label = tf.gather(tokens, ctxs)
     feature = tf.fill([tf.size(label)], tokens[target_idx])
     return tf.concat([features, feature], axis=0), \
@@ -94,8 +93,10 @@ def stack_to_features_and_labels(features, labels, target_idx, tokens,
 
 
 def extract_examples(tokens, window_size, p_num_threads):
-    features = tf.constant([], dtype=tf.int64)
-    labels = tf.constant([], dtype=tf.int64)
+    # features = tf.constant([], dtype=tf.int64)
+    # labels = tf.constant([], dtype=tf.int64)
+    features = tf.constant([], dtype=tf.string)
+    labels = tf.constant([], dtype=tf.string)
     target_idx = tf.constant(0, dtype=tf.int64)
     window_size = tf.constant(window_size, dtype=tf.int64)
     max_size = tf.size(tokens, out_type=tf.int64)
@@ -143,35 +144,43 @@ def cbow(features, labels, mode, params):
 def skipgram(features, labels, mode, params):
     """Return Word2Vec Skipgram model."""
     with tf.contrib.compiler.jit.experimental_jit_scope():
-        embeddings = tf.get_variable(
-            'embeddings', shape=[params['vocab_size'], params['embedding_size']],
-            initializer=tf.random_uniform_initializer(minval=-1.0, maxval=1.0))
+        vocab = get_tf_vocab_table(params['word_freq_dict'], params['min_count'])
+        features = vocab.lookup(features)
+        labels = vocab.lookup(labels)
+        with tf.name_scope('hidden'):
+            embeddings = tf.get_variable(
+                'embeddings', shape=[params['vocab_size'], params['embedding_size']],
+                initializer=tf.random_uniform_initializer(minval=-1.0, maxval=1.0))
 
         embedded_feat = tf.nn.embedding_lookup(embeddings, features)
 
-        nce_weights = tf.get_variable(
-            'nce_weights', shape=[params['vocab_size'], params['embedding_size']],
-            initializer=tf.truncated_normal_initializer(
-                stddev=1.0 / math.sqrt(params['embedding_size'])))
+        with tf.name_scope('weights'):
+            nce_weights = tf.get_variable(
+                'nce_weights', shape=[params['vocab_size'], params['embedding_size']],
+                initializer=tf.truncated_normal_initializer(
+                    stddev=1.0 / math.sqrt(params['embedding_size'])))
 
-        nce_biases = tf.get_variable('nce_biases', shape=[params['vocab_size']],
-                                     initializer=tf.zeros_initializer)
+        with tf.name_scope('biases'):
+            nce_biases = tf.get_variable('nce_biases', shape=[params['vocab_size']],
+                                         initializer=tf.zeros_initializer)
 
-        loss = tf.reduce_mean(
-            tf.nn.nce_loss(weights=nce_weights,
-                           biases=nce_biases,
-                           labels=tf.reshape(labels, [-1, 1]),
-                           inputs=embedded_feat,
-                           num_sampled=params['num_neg_samples'],
-                           num_classes=params['vocab_size']))
+        with tf.name_scope('loss'):
+            loss = tf.reduce_mean(
+                tf.nn.nce_loss(weights=nce_weights,
+                               biases=nce_biases,
+                               labels=tf.reshape(labels, [-1, 1]),
+                               inputs=embedded_feat,
+                               num_sampled=params['num_neg_samples'],
+                               num_classes=params['vocab_size']))
 
-        vocab = get_tf_vocab_table(params['word_freq_dict'], params['min_count'])
+        #vocab = get_tf_vocab_table(params['word_freq_dict'], params['min_count'])
         men_correlation = get_men_correlation(params['men'], vocab, embeddings)
         metrics = {'MEN': men_correlation}
         tf.summary.scalar('MEN', men_correlation[1])
 
-        optimizer = (tf.train.GradientDescentOptimizer(params['learning_rate'])
-                     .minimize(loss, global_step=tf.train.get_global_step()))
+        with tf.name_scope('optimizer'):
+            optimizer = (tf.train.GradientDescentOptimizer(params['learning_rate'])
+                         .minimize(loss, global_step=tf.train.get_global_step()))
 
         return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=optimizer,
                                           eval_metric_ops=metrics)
@@ -227,16 +236,19 @@ class Word2Vec():
                                 min_count, batch_size, num_epochs,
                                 p_num_threads, prefetch_batch_size,
                                 flat_map_pref_batch_size):
-        vocab = get_tf_vocab_table(self._word_freq_dict, min_count)
+        #vocab = get_tf_vocab_table(self._word_freq_dict, min_count)
         return (tf.data.TextLineDataset(training_data_filepath)
                 .map(tf.strings.strip, num_parallel_calls=p_num_threads)
                 .filter(lambda x: tf.not_equal(tf.strings.length(x), 0))  # Filter empty strings
                 .map(lambda x: tf.strings.split([x]),
                      num_parallel_calls=p_num_threads)
-                .map(lambda x: vocab.lookup(x.values),
-                     num_parallel_calls=p_num_threads)  # discretize
-                .map(lambda tokens: extract_examples(tokens, window_size,
-                                                     p_num_threads),
+                # .map(lambda x: vocab.lookup(x.values),
+                #      num_parallel_calls=p_num_threads)  # discretize
+                # .map(lambda tokens: extract_examples(tokens, window_size,
+                #                                      p_num_threads),
+                #      num_parallel_calls=p_num_threads)
+                .map(lambda x: extract_examples(x.values, window_size,
+                                                p_num_threads),
                      num_parallel_calls=p_num_threads)
                 #.prefetch(flat_map_pref_batch_size)  #flat_map_pref_batch_size should be >= batch_size?
                 .flat_map(lambda features, labels: tf.data.Dataset.from_tensor_slices((features, labels)))
