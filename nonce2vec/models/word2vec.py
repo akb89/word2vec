@@ -142,51 +142,39 @@ def cbow(features, labels, mode, params):
 
 def skipgram(features, labels, mode, params):
     """Return Word2Vec Skipgram model."""
-    with tf.name_scope('embeddings'):
-        with tf.contrib.compiler.jit.experimental_jit_scope():
-            embeddings = tf.Variable(tf.random_uniform(
-                shape=[params['vocab_size'], params['embedding_size']],
-                minval=-1.0, maxval=1.0))
-            # embeddings = tf.get_variable('embeddings', initializer=tf.random_uniform(
-            #     shape=[params['vocab_size'], params['embedding_size']],
-            #     minval=-1.0, maxval=1.0))
-            features_embeddings = tf.nn.embedding_lookup(embeddings, features)
-    if mode == tf.estimator.ModeKeys.PREDICT:
-        predictions = {
-            'embedding': features_embeddings,
-        }
-        return tf.estimator.EstimatorSpec(mode, predictions=predictions)
-    with tf.name_scope('weights'):
-        with tf.contrib.compiler.jit.experimental_jit_scope():
-            nce_weights = tf.Variable(tf.truncated_normal(
-                [params['vocab_size'], params['embedding_size']],
+    with tf.contrib.compiler.jit.experimental_jit_scope():
+        embeddings = tf.get_variable(
+            'embeddings', shape=[params['vocab_size'], params['embedding_size']],
+            initializer=tf.random_uniform_initializer(minval=-1.0, maxval=1.0))
+
+        embedded_feat = tf.nn.embedding_lookup(embeddings, features)
+
+        nce_weights = tf.get_variable(
+            'nce_weights', shape=[params['vocab_size'], params['embedding_size']],
+            initializer=tf.truncated_normal_initializer(
                 stddev=1.0 / math.sqrt(params['embedding_size'])))
-    with tf.name_scope('biases'):
-        with tf.contrib.compiler.jit.experimental_jit_scope():
-            nce_biases = tf.Variable(tf.zeros([params['vocab_size']]))
-    with tf.name_scope('loss'):
-        with tf.contrib.compiler.jit.experimental_jit_scope():
-            loss = tf.reduce_mean(
-                tf.nn.nce_loss(weights=nce_weights,
-                               biases=nce_biases,
-                               labels=tf.reshape(labels, [-1, 1]),
-                               inputs=features_embeddings,
-                               num_sampled=params['num_neg_samples'],
-                               num_classes=params['vocab_size']))
 
-    vocab = get_tf_vocab_table(params['word_freq_dict'], params['min_count'])
-    men_correlation = get_men_correlation(params['men'], vocab, embeddings)
-    metrics = {'MEN': men_correlation}
-    tf.summary.scalar('MEN', men_correlation[1])
-    if mode == tf.estimator.ModeKeys.EVAL:
-        return tf.estimator.EstimatorSpec(mode, loss=loss,
+        nce_biases = tf.get_variable('nce_biases', shape=[params['vocab_size']],
+                                     initializer=tf.zeros_initializer)
+
+        loss = tf.reduce_mean(
+            tf.nn.nce_loss(weights=nce_weights,
+                           biases=nce_biases,
+                           labels=tf.reshape(labels, [-1, 1]),
+                           inputs=embedded_feat,
+                           num_sampled=params['num_neg_samples'],
+                           num_classes=params['vocab_size']))
+
+        vocab = get_tf_vocab_table(params['word_freq_dict'], params['min_count'])
+        men_correlation = get_men_correlation(params['men'], vocab, embeddings)
+        metrics = {'MEN': men_correlation}
+        tf.summary.scalar('MEN', men_correlation[1])
+
+        optimizer = (tf.train.GradientDescentOptimizer(params['learning_rate'])
+                     .minimize(loss, global_step=tf.train.get_global_step()))
+
+        return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=optimizer,
                                           eval_metric_ops=metrics)
-
-    with tf.name_scope('optimizer'):
-        with tf.contrib.compiler.jit.experimental_jit_scope():
-            optimizer = (tf.train.GradientDescentOptimizer(params['learning_rate'])
-                         .minimize(loss, global_step=tf.train.get_global_step()))
-    return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=optimizer)
 
 
 class Word2Vec():
