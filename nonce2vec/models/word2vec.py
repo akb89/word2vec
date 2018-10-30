@@ -64,8 +64,8 @@ class Word2Vec():
     def train(self, train_mode, training_data_filepath, model_dirpath,
               min_count, batch_size, embedding_size, num_neg_samples,
               learning_rate, window_size, num_epochs, subsampling_rate,
-              p_num_threads, t_num_threads, save_summary_steps,
-              save_checkpoints_steps, keep_checkpoint_max,
+              p_num_threads, t_num_threads, shuffling_buffer_size,
+              save_summary_steps, save_checkpoints_steps, keep_checkpoint_max,
               log_step_count_steps):
         """Train Word2Vec."""
         if self.vocab_size == 1:
@@ -104,6 +104,7 @@ class Word2Vec():
             estimator.train(
                 input_fn=lambda: skipgram.get_train_dataset(
                     training_data_filepath, window_size, batch_size,
-                    num_epochs, p_num_threads), hooks=[tf.train.ProfilerHook(
+                    num_epochs, p_num_threads, shuffling_buffer_size),
+                    hooks=[tf.train.ProfilerHook(
                         save_steps=save_summary_steps, show_dataflow=True,
                         show_memory=True, output_dir=model_dirpath)])

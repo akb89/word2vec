@@ -1,4 +1,4 @@
-"""Word2Vec skipgram-related implementations."""
+"""Word2Vec skipgram  implementation."""
 
 import logging
 
@@ -78,7 +78,7 @@ def extract_examples(tokens, window_size, p_num_threads):
 
 
 def get_train_dataset(training_data_filepath, window_size, batch_size,
-                      num_epochs, p_num_threads):
+                      num_epochs, p_num_threads, shuffling_buffer_size):
     """Generate a Tensorflow Dataset for a Skipgram model."""
     return (tf.data.TextLineDataset(training_data_filepath)
             .map(tf.strings.strip, num_parallel_calls=p_num_threads)
@@ -89,6 +89,8 @@ def get_train_dataset(training_data_filepath, window_size, batch_size,
                                             p_num_threads),
                  num_parallel_calls=p_num_threads)
             .flat_map(lambda features, labels: tf.data.Dataset.from_tensor_slices((features, labels)))
+            .shuffle(buffer_size=shuffling_buffer_size,
+                     reshuffle_each_iteration=False)
             .repeat(num_epochs)
             .batch(batch_size))
 
