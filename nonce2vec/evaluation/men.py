@@ -38,12 +38,16 @@ class MEN():
     def get_men_correlation(self, vocab, embeddings):
         """Return spearman correlation metric on the MEN dataset."""
         with tf.contrib.compiler.jit.experimental_jit_scope():
+            normalized_embeddings = tf.nn.l2_normalize(embeddings, axis=1)
             left_label_embeddings = tf.nn.embedding_lookup(
-                embeddings, vocab.lookup(tf.constant(self.left_labels)))
+                normalized_embeddings,
+                vocab.lookup(tf.constant(self.left_labels, dtype=tf.string)))
             right_label_embeddings = tf.nn.embedding_lookup(
-                embeddings, vocab.lookup(tf.constant(self.right_labels)))
+                normalized_embeddings,
+                vocab.lookup(tf.constant(self.right_labels, dtype=tf.string)))
             sim_predictions = tf.losses.cosine_distance(
                 left_label_embeddings, right_label_embeddings, axis=1,
                 reduction=tf.losses.Reduction.NONE)
             return tf.contrib.metrics.streaming_pearson_correlation(
-                sim_predictions, tf.constant(self.sim_values))
+                sim_predictions, tf.constant(self.sim_values,
+                                             dtype=tf.float32))
