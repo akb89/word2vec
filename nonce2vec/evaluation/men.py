@@ -45,7 +45,7 @@ class MEN():
             right_label_embeddings = tf.nn.embedding_lookup(
                 normalized_embeddings,
                 vocab.lookup(tf.constant(self.right_labels, dtype=tf.string)))
-            sim_predictions = tf.losses.cosine_distance(
+            sim_predictions = 1 - tf.losses.cosine_distance(
                 left_label_embeddings, right_label_embeddings, axis=1,
                 reduction=tf.losses.Reduction.NONE)
             return tf.contrib.metrics.streaming_pearson_correlation(
