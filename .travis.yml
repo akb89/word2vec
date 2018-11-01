@@ -6,6 +6,7 @@ python:
 install:
   - python setup.py -q install
   - pip install pylint pydocstyle
+  - pip install tensorflow
 
 script:
   - python -m unittest discover tests -p "*_test.py"
