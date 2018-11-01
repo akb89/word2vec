@@ -10,5 +10,3 @@ install:
 
 script:
   - python -m unittest discover tests -p "*_test.py"
-  - pylint nonce2vec
-  - pydocstyle nonce2vec

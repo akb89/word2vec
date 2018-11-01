@@ -27,7 +27,7 @@ class CBOWTest(tf.test.TestCase):
             tf.tables_initializer().run()
             self.assertAllEqual(vocab.lookup(tf.constant(
                 ['the', 'first', 'second', 'test', 'out'])),
-                             tf.constant([0, 1, 2, 3, 4]))
+                                tf.constant([0, 1, 2, 3, 4]))
 
             x = cbow.stack_mean_to_avg_tensor(vocab)(features, avg, idx,
                                                      embeddings)
@@ -43,7 +43,6 @@ class CBOWTest(tf.test.TestCase):
             self.assertAllEqual(y[3].eval(), embeddings.eval())
             self.assertAllEqual(y[1].eval(),
                                 tf.constant([[9.75, 9.75, 9.75]]).eval())
-
 
     def test_avg_ctx_features(self):
         with self.test_session():
