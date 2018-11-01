@@ -77,29 +77,44 @@ def get_train_dataset(training_data_filepath, window_size, batch_size,
             .batch(batch_size))
 
 
-def avg_ctx_embeddings(embeddings, features, vocab, p_num_threads):
-    """features is a tensor of shape (batch_size, 2*window_size)."""
-    is_valid_string = tf.not_equal(features, '_CBOW#_!MASK_')
-    features = tf.boolean_mask(features, is_valid_string)
-    features = vocab.lookup(features)
-    embedded_feat = tf.nn.embedding_lookup(embeddings, features)
-    averaged_ctx = tf.reduce_mean(embedded_feat, 1)
+def stack_mean_to_avg_tensor(vocab):
+    def internal_func(features, avg, idx, embeddings):
+        # For a given set of features, corresponding to a given set
+        # of context words
+        feat_row = features[idx]
+        # select only valid context words
+        is_valid_string = tf.not_equal(feat_row, '_CBOW#_!MASK_')
+        valid_feats = tf.boolean_mask(feat_row, is_valid_string)
+        # discretized the features
+        discretized_feats = vocab.lookup(valid_feats)
+        # select their corresponding embeddings
+        embedded_feats = tf.nn.embedding_lookup(embeddings, discretized_feats)
+        # average over the given context word embeddings
+        mean = tf.reduce_mean(embedded_feats, 0)
+        # concatenate to the return averaged tensor stacking all
+        # averaged context embeddings for a given batch
+        avg = tf.concat([avg, [mean]], axis=0)
+        return features, avg, idx+1, embeddings
+    return internal_func
 
-    features = tf.constant([], shape=[0, 2*window_size], dtype=tf.string)
-    labels = tf.constant([], dtype=tf.string)
-    target_idx = tf.constant(0, dtype=tf.int32)
-    t_window_size = tf.constant(window_size, dtype=tf.int32)
-    max_size = tf.size(features, out_type=tf.int32)
-    range_within_features_size = lambda w, x: tf.less(x, max_size)
-    result = tf.while_loop(
-        cond=range_within_features_size,
-        body=stack_to_features_and_labels,
-        loop_vars=[features, labels, target_idx, tokens, t_window_size],
-        shape_invariants=[tf.TensorShape([None, 2*window_size]), tf.TensorShape([None]),
-                          target_idx.get_shape(), tokens.get_shape(),
-                          t_window_size.get_shape()],
+
+def avg_ctx_features(features, embeddings, vocab, p_num_threads):
+    batch_size = features.get_shape()[0]
+    embedding_size = embeddings.get_shape()[1]
+    idx_within_batch_size = lambda v, w, x, y: tf.less(x, batch_size)
+    stack_mean_to_avg_tensor_with_vocab = stack_mean_to_avg_tensor(vocab)
+    avg = tf.constant([], shape=[0, embedding_size], dtype=tf.float32)
+    idx = tf.constant(0, dtype=tf.int32)
+    features, avg, idx, embeddings = tf.while_loop(
+        cond=idx_within_batch_size,
+        body=stack_mean_to_avg_tensor_with_vocab,
+        loop_vars=[features, avg, idx, embeddings],
+        shape_invariants=[features.get_shape(),
+                          tf.TensorShape([None, embedding_size]),
+                          idx.get_shape(),
+                          embeddings.get_shape()],
         parallel_iterations=p_num_threads)
-    return result[0], result[1]
+    return avg
 
 
 def get_model(features, labels, mode, params):
@@ -115,8 +130,8 @@ def get_model(features, labels, mode, params):
                                                           maxval=1.0))
 
         discretized_labels = tf.reshape(vocab.lookup(labels), [-1, 1])
-        discretized_avg_features = avg_ctx_embeddings(embeddings, features,
-                                                      vocab)
+        discretized_avg_features = avg_ctx_features(
+            features, embeddings, vocab, params['p_num_threads'])
 
         with tf.name_scope('weights'):
             nce_weights = tf.get_variable(
@@ -140,7 +155,9 @@ def get_model(features, labels, mode, params):
                                num_classes=params['vocab_size']))
 
         with tf.name_scope('optimizer'):
-            optimizer = (tf.train.GradientDescentOptimizer(params['learning_rate'])
-                         .minimize(loss, global_step=tf.train.get_global_step()))
+            optimizer = (tf.train.GradientDescentOptimizer(
+                params['learning_rate'])
+                         .minimize(loss,
+                                   global_step=tf.train.get_global_step()))
 
         return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=optimizer)

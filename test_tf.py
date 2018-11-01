@@ -19,7 +19,7 @@ if __name__ == '__main__':
         #print(t.eval())
         paddings = tf.constant([[0, 0], [0, 2]])
         #print(paddings.eval())
-        m = tf.pad(t, paddings, "CONSTANT")
+        m = tf.pad(t, paddings, 'CONSTANT')
         #print(m.eval())
 
         feat = tf.constant([], shape=[0, 2*5], dtype=tf.string)
@@ -64,37 +64,45 @@ if __name__ == '__main__':
         embeddings = tf.get_variable('embeddings', shape=[vocab_size, embedding_size],
                                      initializer=tf.random_uniform_initializer(minval=-1.0, maxval=1.0))
         def stack_mean_to_avg_tensor(features, avg, idx, embeddings):
+            # For a given set of features, corresponding to a given set
+            # of context words
             feat_row = features[idx]
+            # select only valid context words
             is_valid_string = tf.not_equal(feat_row, '_CBOW#_!MASK_')
             valid_feats = tf.boolean_mask(feat_row, is_valid_string)
+            # discretized the features
             discretized_feats = vocab.lookup(valid_feats)
+            # select their corresponding embeddings
             embedded_feats = tf.nn.embedding_lookup(embeddings, discretized_feats)
+            # average over the given context word embeddings
             mean = tf.reduce_mean(embedded_feats, 0)
+            # concatenate to the return averaged tensor stacking all
+            # averaged context embeddings for a given batch
             avg = tf.concat([avg, [mean]], axis=0)
             return features, avg, idx+1, embeddings
         tf.tables_initializer().run()
         tf.initialize_all_variables().run()
+        x_emb = tf.constant([[0, 0, 0, 0], [2, 2, 2, 2], [4, 4, 4, 4], [8, 8, 8, 8]])
+        x_idxx = tf.constant([[0, 1, 2], [3]])
+        x_idx = x_idxx[0]
+        print(x_idx.eval())
+        x_lu = tf.nn.embedding_lookup(x_emb, x_idx)
+        x_mean = tf.reduce_mean(x_lu, 0)
+        print(x_lu.eval())
+        print(x_mean.eval())
         while True:
             try:
-
                 #y = session.run(x)
                 y = x
                 features = y[0]
                 labels = y[1]
                 p_num_threads = 1
                 idx = tf.constant(0, dtype=tf.int32)
-                #batch_size = tf.shape(features)[0]
-
+                print(features.eval())
+                print(batch_size)
 
                 avg = tf.constant([], shape=[0, embedding_size], dtype=tf.float32)
-                # print(avg.eval())
-                # x = tf.constant([[0., 1., 0., 1.], [0., 0, 0., 1.], [0., 1., 1., 1.]])
-                # y = tf.reduce_mean(x, 0)
-                # print(y.eval())
-                # avg = tf.concat([avg, [y]], axis=0)
-                # avg = tf.concat([avg, [y]], axis=0)
-                # print(avg.eval())
-                # break
+
                 idx_within_batch_size = lambda v, w, x, y: tf.less(x, batch_size)
                 result = tf.while_loop(
                     cond=idx_within_batch_size,
@@ -105,7 +113,6 @@ if __name__ == '__main__':
                                       idx.get_shape(),
                                       embeddings.get_shape()],
                     parallel_iterations=p_num_threads)
-                #print(result)
                 print(result[3].eval())
             except tf.errors.OutOfRangeError:
                 break

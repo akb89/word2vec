@@ -1,0 +1,13 @@
+language: python
+python:
+  - "3.5"
+  - "3.6"
+
+install:
+  - python setup.py -q install
+  - pip install pylint pydocstyle
+
+script:
+  - python -m unittest discover tests -p "*_test.py"
+  - pylint pyfn
+  - pydocstyle pyfn

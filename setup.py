@@ -32,9 +32,8 @@ setup(
             'n2v = nonce2vec.main:main'
         ],
     },
-    install_requires=['PyYAML==3.13', 'natsort==5.4.1', 'pytest==3.9.3'],
-    setup_requires=['pytest-runner==4.0', 'pytest-pylint==0.8.0'],
-    tests_require=['pytest==3.4.1', 'pylint==1.8.2', 'pytest-cov==2.5.1'],
+    test_suite = 'tests',
+    install_requires=['PyYAML==3.13', 'natsort==5.4.1'],
     dependency_links=[
         'https://github.com/akb89/wikiextractor/tarball/master#egg=wikiextractor-3.0.3',
         'https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-2.0.0/en_core_web_sm-2.0.0.tar.gz'],
