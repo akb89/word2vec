@@ -77,7 +77,8 @@ def filter_tokens(tokens, min_count, sampling_rate, word_count_table,
                   word_freq_table):
     return tf.logical_and(
         tf.greater_equal(word_count_table.lookup(tokens),
-                         tf.fill([tf.size(tokens)], min_count)),
+                         tf.fill([tf.size(tokens)],
+                                 tf.constant(min_count))),
         tf.less(sample_prob(tokens, sampling_rate, word_freq_table),
                 tf.random_uniform(shape=[tf.size(tokens)],
                                   minval=0, maxval=1, dtype=tf.float32)))
@@ -91,8 +92,9 @@ def get_train_dataset(training_data_filepath, window_size, batch_size,
             #.filter(lambda x: tf.not_equal(tf.strings.length(x), 0))  # Filter empty strings
             .map(lambda x: tf.strings.split([x]),
                  num_parallel_calls=p_num_threads)
-            #.map(lambda x: filter_tokens(x.values))
-            #.filter(lambda x: tf.greater(tf.size(x), 1))
+            .filter(lambda x: filter_tokens(x.values, min_count, sampling_rate,
+                                            word_count_table, word_freq_table))
+            .filter(lambda x: tf.greater(tf.size(x), 1))
             .map(lambda x: extract_examples(x.values, window_size,
                                             p_num_threads),
                  num_parallel_calls=p_num_threads)

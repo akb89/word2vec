@@ -40,13 +40,16 @@ class CBOWTest(tf.test.TestCase):
 
     def test_filter_tokens(self):
         with self.test_session() as session:
+            min_count = 50
+            sampling_rate = 1.
             test_data_filepath = os.path.join(os.path.dirname(__file__),
                                               'resources', 'data.txt')
             vocab_filepath = os.path.join(os.path.dirname(__file__),
                                           'resources', 'wiki.test.vocab')
             w2v = Word2Vec()
             w2v.load_vocab(vocab_filepath)
-            word_freq = vocab_utils.get_tf_vocab_table(w2v._word_count_dict)
+            word_count_table = vocab_utils.get_tf_word_count_table(w2v._word_count_dict)
+            word_freq_table = vocab_utils.get_tf_word_freq_table(w2v._word_count_dict)
             tf.tables_initializer().run()
             dataset = (tf.data.TextLineDataset(test_data_filepath)
                        .map(tf.strings.strip)
@@ -55,11 +58,12 @@ class CBOWTest(tf.test.TestCase):
             init_op = iterator.initializer
             x = iterator.get_next()
             session.run(init_op)
-            first_tokens = x.values
+            self.assertAllEqual(cbow.filter_tokens(
+                x.values, min_count, sampling_rate, word_count_table,
+                word_freq_table), tf.constant([
+                    True, True, True, False, False, True, False, False, True,
+                    False, False, False, True, False, False, True]))
 
-            second_tokens = x.values
-            #print(first_tokens.eval())
-            #print(second_tokens.eval())
 
 
     def test_stack_mean_to_avg_tensor(self):
