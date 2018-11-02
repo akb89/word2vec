@@ -7,8 +7,11 @@ import logging
 import tensorflow as tf
 
 import nonce2vec.learning.skipgram as skipgram
+import nonce2vec.learning.cbow as cbow
 
 from nonce2vec.evaluation.men import MEN
+
+from tensorflow.python import debug as tf_debug
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +25,7 @@ class Word2Vec():
         """Initialize vocab dictionaries."""
         # Needs to make sure dict is ordered to always get the same
         # lookup table
-        self._word_freq_dict = OrderedDict()
+        self._word_count_dict = OrderedDict()
 
     @property
     def vocab_size(self):
@@ -31,7 +34,7 @@ class Word2Vec():
         Since we use len(word_freq_dict) as the default index for UKN in
         the index_table, we have to add 1 to the length
         """
-        return len(self._word_freq_dict) + 1
+        return len(self._word_count_dict) + 1
 
     def build_vocab(self, data_filepath, vocab_filepath):
         """Create vocabulary-related data."""
@@ -43,13 +46,13 @@ class Word2Vec():
         with open(data_filepath, 'r') as data_stream:
             for line in data_stream:
                 for word in line.strip().split():
-                    if word not in self._word_freq_dict:
-                        self._word_freq_dict[word] = 1
+                    if word not in self._word_count_dict:
+                        self._word_count_dict[word] = 1
                     else:
-                        self._word_freq_dict[word] += 1
+                        self._word_count_dict[word] += 1
         logger.info('Saving word frequencies to file: {}'.format(vocab_filepath))
         with open(vocab_filepath, 'w') as vocab_stream:
-            for key, value in self._word_freq_dict.items():
+            for key, value in self._word_count_dict.items():
                 print('{}\t{}'.format(key, value), file=vocab_stream)
 
     def load_vocab(self, vocab_filepath):
@@ -59,7 +62,7 @@ class Word2Vec():
         with open(vocab_filepath, 'r', encoding='UTF-8') as vocab_stream:
             for line in vocab_stream:
                 word_freq = line.strip().split('\t', 1)
-                self._word_freq_dict[word_freq[0]] = int(word_freq[1])
+                self._word_count_dict[word_freq[0]] = int(word_freq[1])
 
     def train(self, train_mode, training_data_filepath, model_dirpath,
               min_count, batch_size, embedding_size, num_neg_samples,
@@ -84,7 +87,31 @@ class Word2Vec():
             keep_checkpoint_max=keep_checkpoint_max,
             log_step_count_steps=log_step_count_steps)
         if train_mode == 'cbow':
-            pass
+            estimator = tf.estimator.Estimator(
+                model_fn=cbow.get_model,
+                model_dir=model_dirpath,
+                config=run_config,
+                params={
+                    'vocab_size': self.vocab_size,
+                    'batch_size': batch_size,
+                    'embedding_size': embedding_size,
+                    'num_neg_samples': num_neg_samples,
+                    'learning_rate': learning_rate,
+                    'word_freq_dict': self._word_count_dict,
+                    'min_count': min_count,
+                    'p_num_threads': p_num_threads,
+                    'men': MEN(os.path.join(
+                        os.path.dirname(os.path.dirname(__file__)),
+                        'resources', 'MEN_dataset_natural_form_full'))
+                })
+            estimator.train(
+                input_fn=lambda: cbow.get_train_dataset(
+                    training_data_filepath, window_size, batch_size,
+                    num_epochs, p_num_threads, shuffling_buffer_size),
+                hooks=[tf.train.ProfilerHook(
+                    save_steps=save_summary_steps, show_dataflow=True,
+                    show_memory=True, output_dir=model_dirpath),
+                       tf_debug.TensorBoardDebugHook('AKB-2.local:6007')])
         if train_mode == 'skipgram':
             estimator = tf.estimator.Estimator(
                 model_fn=skipgram.get_model,
@@ -95,7 +122,7 @@ class Word2Vec():
                     'embedding_size': embedding_size,
                     'num_neg_samples': num_neg_samples,
                     'learning_rate': learning_rate,
-                    'word_freq_dict': self._word_freq_dict,
+                    'word_freq_dict': self._word_count_dict,
                     'min_count': min_count,
                     'men': MEN(os.path.join(
                         os.path.dirname(os.path.dirname(__file__)),

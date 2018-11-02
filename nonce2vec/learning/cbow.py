@@ -38,47 +38,75 @@ def stack_to_features_and_labels(features, labels, target_idx, tokens,
                                  window_size):
     ctxs = ctx_idxx(target_idx, window_size, tokens)
     ctx_features = tf.gather(tokens, ctxs)
+    diff = 2 * window_size - tf.size(ctx_features)
+    ctx_features = tf.reshape(ctx_features, [1, -1])
+    paddings = tf.concat([tf.constant([[0, 0]]), tf.concat([tf.constant([[0]]), [[diff]]], axis=1)], axis=0)
+    padded_ctx_features = tf.pad(ctx_features, paddings,
+                                 constant_values='_CBOW#_!MASK_')
     label = tokens[target_idx]
-    return tf.concat([features, [ctx_features]], axis=0), \
-           tf.concat([labels, label], axis=0), target_idx+1, tokens, window_size
+    return tf.concat([features, padded_ctx_features], axis=0), \
+           tf.concat([labels, [label]], axis=0), target_idx+1, tokens, \
+           window_size
 
 
 def extract_examples(tokens, window_size, p_num_threads):
-    features = tf.constant([], dtype=tf.string)
+    features = tf.constant([], shape=[0, 2*window_size], dtype=tf.string)
     labels = tf.constant([], dtype=tf.string)
     target_idx = tf.constant(0, dtype=tf.int32)
-    window_size = tf.constant(window_size, dtype=tf.int32)
-    max_size = tf.size(tokens, out_type=tf.int32)
+    t_window_size = tf.constant(window_size, dtype=tf.int32)
+    max_size = tf.size(tokens, out_type=tf.int32)  # TODO: check if not -1
     target_idx_less_than_tokens_size = lambda w, x, y, z, k: tf.less(y, max_size)
     result = tf.while_loop(
         cond=target_idx_less_than_tokens_size,
         body=stack_to_features_and_labels,
-        loop_vars=[features, labels, target_idx, tokens, window_size],
-        shape_invariants=[tf.TensorShape([None]), tf.TensorShape([None]),
+        loop_vars=[features, labels, target_idx, tokens, t_window_size],
+        shape_invariants=[tf.TensorShape([None, 2*window_size]),
+                          tf.TensorShape([None]),
                           target_idx.get_shape(), tokens.get_shape(),
-                          window_size.get_shape()],
+                          t_window_size.get_shape()],
         parallel_iterations=p_num_threads)
     return result[0], result[1]
 
 
+def sample_prob(tokens, sampling_rate, word_freq_table):
+    """Sample according to w2v paper formula: p = 1 - sqrt(t/f)."""
+    return 1 - tf.sqrt(tf.fill([tf.size(tokens)], sampling_rate) / word_freq_table.lookup(tokens))
+
+
+def filter_tokens(tokens, min_count, sampling_rate, word_count_table,
+                  word_freq_table):
+    return tf.logical_and(
+        tf.greater_equal(word_count_table.lookup(tokens),
+                         tf.fill([tf.size(tokens)], min_count)),
+        tf.less(sample_prob(tokens, sampling_rate, word_freq_table),
+                tf.random_uniform(shape=[tf.size(tokens)],
+                                  minval=0, maxval=1, dtype=tf.float32)))
+
+
 def get_train_dataset(training_data_filepath, window_size, batch_size,
-                      num_epochs, p_num_threads):
-    """Generate a Tensorflow Dataset for a Skipgram model."""
+                      num_epochs, p_num_threads, shuffling_buffer_size):
+    """Generate a Tensorflow Dataset for a CBOW model."""
     return (tf.data.TextLineDataset(training_data_filepath)
             .map(tf.strings.strip, num_parallel_calls=p_num_threads)
-            .filter(lambda x: tf.not_equal(tf.strings.length(x), 0))  # Filter empty strings
+            #.filter(lambda x: tf.not_equal(tf.strings.length(x), 0))  # Filter empty strings
             .map(lambda x: tf.strings.split([x]),
                  num_parallel_calls=p_num_threads)
+            #.map(lambda x: filter_tokens(x.values))
+            #.filter(lambda x: tf.greater(tf.size(x), 1))
             .map(lambda x: extract_examples(x.values, window_size,
                                             p_num_threads),
                  num_parallel_calls=p_num_threads)
             .flat_map(lambda features, labels: tf.data.Dataset.from_tensor_slices((features, labels)))
+            .shuffle(buffer_size=shuffling_buffer_size,
+                     reshuffle_each_iteration=False)
             .repeat(num_epochs)
-            .batch(batch_size))
+            .batch(batch_size, drop_remainder=True))
+            # we need drop_remainder to statically know the batch dimension
+            # this is required to get features.get_shape()[0] in avg_ctx_features
 
 
-def stack_mean_to_avg_tensor(vocab):
-    def internal_func(features, avg, idx, embeddings):
+def stack_mean_to_avg_tensor(features, vocab, embeddings):
+    def internal_func(avg, idx):
         # For a given set of features, corresponding to a given set
         # of context words
         feat_row = features[idx]
@@ -94,34 +122,33 @@ def stack_mean_to_avg_tensor(vocab):
         # concatenate to the return averaged tensor stacking all
         # averaged context embeddings for a given batch
         avg = tf.concat([avg, [mean]], axis=0)
-        return features, avg, idx+1, embeddings
+        return [avg, idx+1]
     return internal_func
 
 
 def avg_ctx_features(features, embeddings, vocab, p_num_threads):
-    batch_size = features.get_shape()[0]
+    feat_batch_size = features.get_shape()[0]
     embedding_size = embeddings.get_shape()[1]
-    idx_within_batch_size = lambda v, w, x, y: tf.less(x, batch_size)
-    stack_mean_to_avg_tensor_with_vocab = stack_mean_to_avg_tensor(vocab)
+    idx_within_batch_size = lambda x, y: tf.less(y, feat_batch_size)
+    stack_mean_to_avg_tensor_with_vocab = stack_mean_to_avg_tensor(features, vocab, embeddings)
     avg = tf.constant([], shape=[0, embedding_size], dtype=tf.float32)
     idx = tf.constant(0, dtype=tf.int32)
-    features, avg, idx, embeddings = tf.while_loop(
+    avg, idx = tf.while_loop(
         cond=idx_within_batch_size,
         body=stack_mean_to_avg_tensor_with_vocab,
-        loop_vars=[features, avg, idx, embeddings],
-        shape_invariants=[features.get_shape(),
-                          tf.TensorShape([None, embedding_size]),
-                          idx.get_shape(),
-                          embeddings.get_shape()],
-        parallel_iterations=p_num_threads)
+        loop_vars=[avg, idx],
+        shape_invariants=[tf.TensorShape([None, embedding_size]),
+                          idx.get_shape()],
+        parallel_iterations=p_num_threads,
+        maximum_iterations=feat_batch_size)
     return avg
 
 
 def get_model(features, labels, mode, params):
     """Return Word2Vec cbow model for a Tensorflow Estimator."""
     with tf.contrib.compiler.jit.experimental_jit_scope():
-        vocab = vocab_utils.get_tf_vocab_table(params['word_freq_dict'],
-                                               params['min_count'])
+        vocab = vocab_utils.get_tf_vocab_table(params['word_freq_dict'])
+        word_count = vocab_utils.get_tf_word_count_table(params['word_freq_dict'])
         with tf.name_scope('hidden'):
             embeddings = tf.get_variable(
                 'embeddings', shape=[params['vocab_size'],

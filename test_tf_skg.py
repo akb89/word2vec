@@ -12,18 +12,18 @@ class Word2Vec():
     def __init__(self):
         """Initialize vocab dictionaries."""
         self._vocab = None
-        self._word_freq_dict = defaultdict(int)
+        self._word_count_dict = defaultdict(int)
 
     @property
     def vocab_size(self):
-        return len(self._word_freq_dict)
+        return len(self._word_count_dict)
 
     def load_vocab(self, vocab_filepath):
         """Load a previously saved vocabulary file."""
         with open(vocab_filepath, 'r', encoding='UTF-8') as vocab_stream:
             for line in vocab_stream:
                 word_freq = line.strip().split('\t', 1)
-                self._word_freq_dict[word_freq[0]] = int(word_freq[1])
+                self._word_count_dict[word_freq[0]] = int(word_freq[1])
 
     def _get_tf_vocab_table(self, word_freq_dict, min_count):
         mapping_strings = tf.constant([word for (word, freq) in word_freq_dict.items() if freq >= min_count])
@@ -34,7 +34,7 @@ class Word2Vec():
                                 min_count, batch_size, num_epochs,
                                 p_num_threads, prefetch_batch_size=1):
         # Needs to be here to make sure everything belongs to the same graph
-        self._vocab = self._get_tf_vocab_table(self._word_freq_dict, min_count)
+        self._vocab = self._get_tf_vocab_table(self._word_count_dict, min_count)
         tf.tables_initializer().run()
         def ctx_idxx(target_idx, window_size, tokens):
             """
