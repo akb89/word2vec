@@ -32,7 +32,7 @@ setup(
             'n2v = nonce2vec.main:main'
         ],
     },
-    test_suite = 'tests',
+    test_suite='tests',
     install_requires=['PyYAML==3.13', 'natsort==5.4.1'],
     dependency_links=[
         'https://github.com/akb89/wikiextractor/tarball/master#egg=wikiextractor-3.0.3',

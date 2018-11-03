@@ -5,7 +5,7 @@ import tensorflow as tf
 from nonce2vec.evaluation.men import MEN
 
 
-class MENTest(tf.test.TestCase):
+class MENEvaluationTest(tf.test.TestCase):
 
     def test_get_men_correlation(self):
         with self.test_session():
@@ -45,3 +45,7 @@ class MENTest(tf.test.TestCase):
             tf.global_variables_initializer().run()
             tf.local_variables_initializer().run()
             self.assertGreater(men_correlation[1].eval(), 0.97)
+
+
+if __name__ == '__main__':
+    tf.test.main()

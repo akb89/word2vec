@@ -1,137 +1,109 @@
-"""A word2vec implementation using Tensorflow and estimators."""
+"""Return a Word2Vec model (CBOW or SKIPGRAM) for a Tensorflow Estimator."""
 
-import os
-
-from collections import OrderedDict
 import logging
+
+import math
 import tensorflow as tf
 
-import nonce2vec.learning.skipgram as skipgram
-import nonce2vec.learning.cbow as cbow
-
-from nonce2vec.evaluation.men import MEN
-
-from tensorflow.python import debug as tf_debug
+import nonce2vec.utils.vocab as vocab_utils
 
 logger = logging.getLogger(__name__)
 
-__all__ = ('Word2Vec')
+__all__ = ('model')
 
 
-class Word2Vec():
-    """Tensorflow implementation of Word2vec."""
+def concat_mean_to_avg_tensor(features, vocab, embeddings):
+    """Concatenate the mean of ctx embeddings to the features tensor."""
+    def internal_func(avg, idx):
+        # For a given set of features, corresponding to a given set
+        # of context words
+        feat_row = features[idx]
+        # select only valid context words
+        is_valid_string = tf.not_equal(feat_row, '_CBOW#_!MASK_')
+        valid_feats = tf.boolean_mask(feat_row, is_valid_string)
+        # discretized the features
+        discretized_feats = vocab.lookup(valid_feats)
+        # select their corresponding embeddings
+        embedded_feats = tf.nn.embedding_lookup(embeddings, discretized_feats)
+        # average over the given context word embeddings
+        mean = tf.reduce_mean(embedded_feats, 0)
+        # concatenate to the return averaged tensor stacking all
+        # averaged context embeddings for a given batch
+        avg = tf.concat([avg, [mean]], axis=0)
+        return [avg, idx+1]
+    return internal_func
 
-    def __init__(self):
-        """Initialize vocab dictionaries."""
-        # Needs to make sure dict is ordered to always get the same
-        # lookup table
-        self._word_count_dict = OrderedDict()
 
-    @property
-    def vocab_size(self):
-        """Return the number of items in vocabulary.
+def avg_ctx_features_embeddings(features, embeddings, vocab, p_num_threads):
+    feat_batch_size = features.get_shape()[0]
+    embedding_size = embeddings.get_shape()[1]
+    idx_within_batch_size = lambda x, idx: tf.less(idx, feat_batch_size)
+    concat_func = concat_mean_to_avg_tensor(features, vocab, embeddings)
+    avg = tf.constant([], shape=[0, embedding_size], dtype=tf.float32)
+    idx = tf.constant(0, dtype=tf.int32)
+    avg, idx = tf.while_loop(
+        cond=idx_within_batch_size,
+        body=concat_func,
+        loop_vars=[avg, idx],
+        shape_invariants=[tf.TensorShape([None, embedding_size]),
+                          idx.get_shape()],
+        parallel_iterations=p_num_threads,
+        maximum_iterations=feat_batch_size)
+    return avg
 
-        Since we use len(word_freq_dict) as the default index for UKN in
-        the index_table, we have to add 1 to the length
-        """
-        return len(self._word_count_dict) + 1
 
-    def build_vocab(self, data_filepath, vocab_filepath):
-        """Create vocabulary-related data."""
-        logger.info('Building vocabulary from file {}'.format(data_filepath))
-        logger.info('Loading word frequencies...')
-        if self.vocab_size > 1:
-            logger.warning('This instance of W2V\'s vocabulary does not seem '
-                           'to be empty. Erasing previously stored vocab...')
-        with open(data_filepath, 'r') as data_stream:
-            for line in data_stream:
-                for word in line.strip().split():
-                    if word not in self._word_count_dict:
-                        self._word_count_dict[word] = 1
-                    else:
-                        self._word_count_dict[word] += 1
-        logger.info('Saving word frequencies to file: {}'.format(vocab_filepath))
-        with open(vocab_filepath, 'w') as vocab_stream:
-            for key, value in self._word_count_dict.items():
-                print('{}\t{}'.format(key, value), file=vocab_stream)
+def model(features, labels, mode, params):
+    """Return the model_fn function of a TF Estimator for a Word2Vec model."""
+    if params['mode'] not in ['cbow', 'skipgram']:
+        raise Exception('Unsupported Word2Vec mode \'{}\''
+                        .format(params['mode']))
+    with tf.contrib.compiler.jit.experimental_jit_scope():
+        vocab_table = vocab_utils.get_tf_vocab_table(
+            params['word_count_dict'], params['min_count'])
+        with tf.name_scope('hidden'):
+            embeddings = tf.get_variable(
+                'embeddings', shape=[params['vocab_size'],
+                                     params['embedding_size']],
+                initializer=tf.random_uniform_initializer(minval=-1.0,
+                                                          maxval=1.0))
+        if params['mode'] == 'cbow':
+            discret_labels = vocab_table.lookup(labels)
+            discret_features_embeddings = avg_ctx_features_embeddings(
+                features, embeddings, vocab_table, params['p_num_threads'])
+        elif params['mode'] == 'skipgram':
+            discret_labels = vocab_table.lookup(labels)
+            discret_features_embeddings = tf.nn.embedding_lookup(
+                embeddings, vocab_table.lookup(features))
 
-    def load_vocab(self, vocab_filepath):
-        """Load a previously saved vocabulary file."""
-        logger.info('Loading word frequencies from file {}'
-                    .format(vocab_filepath))
-        with open(vocab_filepath, 'r', encoding='UTF-8') as vocab_stream:
-            for line in vocab_stream:
-                word_freq = line.strip().split('\t', 1)
-                self._word_count_dict[word_freq[0]] = int(word_freq[1])
+        with tf.name_scope('weights'):
+            nce_weights = tf.get_variable(
+                'nce_weights', shape=[params['vocab_size'],
+                                      params['embedding_size']],
+                initializer=tf.truncated_normal_initializer(
+                    stddev=1.0 / math.sqrt(params['embedding_size'])))
 
-    def train(self, train_mode, training_data_filepath, model_dirpath,
-              min_count, batch_size, embedding_size, num_neg_samples,
-              learning_rate, window_size, num_epochs, subsampling_rate,
-              p_num_threads, t_num_threads, shuffling_buffer_size,
-              save_summary_steps, save_checkpoints_steps, keep_checkpoint_max,
-              log_step_count_steps):
-        """Train Word2Vec."""
-        if self.vocab_size == 1:
-            raise Exception('You need to build or load a vocabulary before '
-                            'training word2vec')
-        if train_mode not in ('cbow', 'skipgram'):
-            raise Exception('Unsupported train_mode \'{}\''.format(train_mode))
-        sess_config = tf.ConfigProto(log_device_placement=True)
-        sess_config.intra_op_parallelism_threads = t_num_threads
-        sess_config.inter_op_parallelism_threads = t_num_threads
-        sess_config.graph_options.optimizer_options.global_jit_level = \
-         tf.OptimizerOptions.ON_1  # JIT compilation on GPU
-        run_config = tf.estimator.RunConfig(
-            session_config=sess_config, save_summary_steps=save_summary_steps,
-            save_checkpoints_steps=save_checkpoints_steps,
-            keep_checkpoint_max=keep_checkpoint_max,
-            log_step_count_steps=log_step_count_steps)
-        if train_mode == 'cbow':
-            estimator = tf.estimator.Estimator(
-                model_fn=cbow.get_model,
-                model_dir=model_dirpath,
-                config=run_config,
-                params={
-                    'vocab_size': self.vocab_size,
-                    'batch_size': batch_size,
-                    'embedding_size': embedding_size,
-                    'num_neg_samples': num_neg_samples,
-                    'learning_rate': learning_rate,
-                    'word_freq_dict': self._word_count_dict,
-                    'min_count': min_count,
-                    'p_num_threads': p_num_threads,
-                    'men': MEN(os.path.join(
-                        os.path.dirname(os.path.dirname(__file__)),
-                        'resources', 'MEN_dataset_natural_form_full'))
-                })
-            estimator.train(
-                input_fn=lambda: cbow.get_train_dataset(
-                    training_data_filepath, window_size, batch_size,
-                    num_epochs, p_num_threads, shuffling_buffer_size),
-                hooks=[tf.train.ProfilerHook(
-                    save_steps=save_summary_steps, show_dataflow=True,
-                    show_memory=True, output_dir=model_dirpath),
-                       tf_debug.TensorBoardDebugHook('AKB-2.local:6007')])
-        if train_mode == 'skipgram':
-            estimator = tf.estimator.Estimator(
-                model_fn=skipgram.get_model,
-                model_dir=model_dirpath,
-                config=run_config,
-                params={
-                    'vocab_size': self.vocab_size,
-                    'embedding_size': embedding_size,
-                    'num_neg_samples': num_neg_samples,
-                    'learning_rate': learning_rate,
-                    'word_freq_dict': self._word_count_dict,
-                    'min_count': min_count,
-                    'men': MEN(os.path.join(
-                        os.path.dirname(os.path.dirname(__file__)),
-                        'resources', 'MEN_dataset_natural_form_full'))
-                })
-            estimator.train(
-                input_fn=lambda: skipgram.get_train_dataset(
-                    training_data_filepath, window_size, batch_size,
-                    num_epochs, p_num_threads, shuffling_buffer_size),
-                    hooks=[tf.train.ProfilerHook(
-                        save_steps=save_summary_steps, show_dataflow=True,
-                        show_memory=True, output_dir=model_dirpath)])
+        with tf.name_scope('biases'):
+            nce_biases = tf.get_variable(
+                'nce_biases', shape=[params['vocab_size']],
+                initializer=tf.zeros_initializer)
+
+        with tf.name_scope('loss'):
+            loss = tf.reduce_mean(
+                tf.nn.nce_loss(weights=nce_weights,
+                               biases=nce_biases,
+                               labels=discret_labels,
+                               inputs=discret_features_embeddings,
+                               num_sampled=params['num_neg_samples'],
+                               num_classes=params['vocab_size']))
+
+        with tf.name_scope('optimizer'):
+            optimizer = (tf.train.GradientDescentOptimizer(
+                params['learning_rate'])
+                         .minimize(loss,
+                                   global_step=tf.train.get_global_step()))
+        men_correlation = params['men'].get_men_correlation(
+            vocab_table, embeddings)
+        metrics = {'MEN': men_correlation}
+        tf.summary.scalar('MEN', men_correlation[1])
+        return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=optimizer,
+                                          eval_metric_ops=metrics)
