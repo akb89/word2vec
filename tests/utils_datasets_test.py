@@ -1,6 +1,7 @@
 import os
 
 import tensorflow as tf
+import math
 
 import nonce2vec.utils.datasets as datasets_utils
 import nonce2vec.utils.vocab as vocab_utils
@@ -41,9 +42,9 @@ class DatasetsUtilsTest(tf.test.TestCase):
             vocab_filepath = os.path.join(os.path.dirname(__file__),
                                           'resources', 'wiki.test.vocab')
             w2v = Word2Vec()
-            w2v.load_vocab(vocab_filepath)
-            word_freq_table = vocab_utils.get_tf_word_freq_table(
-                w2v._word_count_dict, min_count)
+            w2v.load_vocab(vocab_filepath, min_count)
+            word_count_table = vocab_utils.get_tf_word_count_table(
+                w2v._words, w2v._counts)
             test_data_filepath = os.path.join(os.path.dirname(__file__),
                                               'resources', 'data.txt')
             tf.tables_initializer().run()
@@ -54,15 +55,14 @@ class DatasetsUtilsTest(tf.test.TestCase):
             init_op = iterator.initializer
             x = iterator.get_next()
             session.run(init_op)
-            tokens = tf.identity(x.values)
-            prob = datasets_utils.sample_prob(tokens, sampling_rate,
-                                              word_freq_table)
+            tokens = tf.convert_to_tensor(x.values.eval())
+            prob = datasets_utils.sample_prob(
+                tokens, sampling_rate, word_count_table, w2v._total_count)
+            sample = lambda x: 1 - math.sqrt(sampling_rate / (x / w2v._total_count))
             self.assertAllEqual(
-                prob, tf.constant([0.95174104, 0.96964055, 0.9753132,
-                                   0.8828317, 0.8525664, 0.9641541, 0.77159685,
-                                   0.8885507, 0.9712239, 0.48927504, 0.6388629,
-                                   0.89983857, 0.95376116, 0.77159685,
-                                   0.70513284, 0.98366046]))
+                prob, tf.constant(
+                    [sample(y) for y in word_count_table.lookup(tokens).eval()],
+                    dtype=tf.float64))
 
     def test_filter_tokens_mask(self):
         with self.test_session() as session:
@@ -73,11 +73,9 @@ class DatasetsUtilsTest(tf.test.TestCase):
             vocab_filepath = os.path.join(os.path.dirname(__file__),
                                           'resources', 'wiki.test.vocab')
             w2v = Word2Vec()
-            w2v.load_vocab(vocab_filepath)
+            w2v.load_vocab(vocab_filepath, min_count)
             word_count_table = vocab_utils.get_tf_word_count_table(
-                w2v._word_count_dict, min_count)
-            word_freq_table = vocab_utils.get_tf_word_freq_table(
-                w2v._word_count_dict, min_count)
+                w2v._words, w2v._counts)
             tf.tables_initializer().run()
             dataset = (tf.data.TextLineDataset(test_data_filepath)
                        .map(tf.strings.strip)
@@ -87,10 +85,36 @@ class DatasetsUtilsTest(tf.test.TestCase):
             x = iterator.get_next()
             session.run(init_op)
             self.assertAllEqual(datasets_utils.filter_tokens_mask(
-                x.values, min_count, sampling_rate, word_count_table,
-                word_freq_table), tf.constant([
-                    True, True, True, False, False, True, False, False, True,
-                    False, False, False, True, False, False, True]))
+                x.values, sampling_rate, word_count_table, w2v._total_count),
+                                tf.constant(
+                                    [True, True, True, False, False, True,
+                                     False, False, True, False, False, False,
+                                     True, False, False, True]))
+
+    def test_sample_tokens(self):
+        with self.test_session() as session:
+            min_count = 50
+            sampling_rate = 1.
+            test_data_filepath = os.path.join(os.path.dirname(__file__),
+                                              'resources', 'data.txt')
+            vocab_filepath = os.path.join(os.path.dirname(__file__),
+                                          'resources', 'wiki.test.vocab')
+            w2v = Word2Vec()
+            w2v.load_vocab(vocab_filepath, min_count)
+            word_count_table = vocab_utils.get_tf_word_count_table(
+                w2v._words, w2v._counts)
+            tf.tables_initializer().run()
+            dataset = (tf.data.TextLineDataset(test_data_filepath)
+                       .map(tf.strings.strip)
+                       .map(lambda x: tf.strings.split([x])))
+            iterator = dataset.make_initializable_iterator()
+            init_op = iterator.initializer
+            x = iterator.get_next()
+            session.run(init_op)
+            self.assertAllEqual(datasets_utils.sample_tokens(
+                x.values, sampling_rate, word_count_table, w2v._total_count),
+                                tf.constant([b'anarchism', b'is', b'a',
+                                             b'that', b'-', b'on', b'.']))
 
     def test_extract_cbow_examples(self):
         with self.test_session():
@@ -124,13 +148,13 @@ class DatasetsUtilsTest(tf.test.TestCase):
             vocab_filepath = os.path.join(os.path.dirname(__file__),
                                           'resources', 'wiki.test.vocab')
             w2v = Word2Vec()
-            w2v.load_vocab(vocab_filepath)
+            w2v.load_vocab(vocab_filepath, min_count)
             test_data_filepath = os.path.join(os.path.dirname(__file__),
                                               'resources', 'data.txt')
             dataset = datasets_utils.get_w2v_train_dataset(
-                test_data_filepath, 'cbow', w2v._word_count_dict,
-                window_size, min_count, sampling_rate, batch_size, num_epochs,
-                p_num_threads, shuffling_buffer_size)
+                test_data_filepath, 'cbow', w2v._words, w2v._counts,
+                w2v._total_count, window_size, sampling_rate, batch_size,
+                num_epochs, p_num_threads, shuffling_buffer_size)
             tf.tables_initializer().run()
             iterator = dataset.make_initializable_iterator()
             init_op = iterator.initializer

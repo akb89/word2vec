@@ -5,6 +5,7 @@ import time
 import tensorflow as tf
 
 import nonce2vec.utils.datasets as datasets_utils
+import nonce2vec.utils.vocab as vocab_utils
 from nonce2vec.estimators.word2vec import Word2Vec
 
 if __name__ == '__main__':
@@ -24,19 +25,27 @@ if __name__ == '__main__':
                                               NE, SBS))
     tf.enable_eager_execution()
     w2v = Word2Vec()
-    w2v.load_vocab(VOCAB)
+    print('loading vocab...')
+    w2v.load_vocab(VOCAB, MINC)
+    print('done loading vocab')
     with tf.Session(graph=tf.Graph()) as session:
         dataset = datasets_utils.get_w2v_train_dataset(
-            TDF, MODE, w2v._word_count_dict, WIN, MINC, SAMP, BS, NE, PT, SBS)
+            TDF, MODE, w2v._words, w2v._counts, w2v._total_count, WIN, SAMP, BS, NE, PT, SBS)
         iterator = dataset.make_initializable_iterator()
         init_op = iterator.initializer
+        print('initializing tables...')
+        word_count_table = vocab_utils.get_tf_word_count_table(w2v._words, w2v._counts)
         tf.tables_initializer().run()
+        print('done initializing tables')
+        print('generating datasets...')
+
         x = iterator.get_next()
         i = 1
         session.run(init_op)
         start = time.monotonic()
         while True:
             try:
+                print('step {}'.format(i))
                 features, labels = session.run(x)
                 print(features)
                 print(labels)

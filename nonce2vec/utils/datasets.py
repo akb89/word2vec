@@ -95,45 +95,49 @@ def extract_examples(tokens, train_mode, window_size, p_num_threads):
     return result[0], result[1]
 
 
-def sample_prob(tokens, sampling_rate, word_freq_table):
+def sample_prob(tokens, sampling_rate, word_count_table, total_count):
     """Sample according to w2v paper formula: p = 1 - sqrt(t/f)."""
-    return 1 - tf.sqrt(tf.fill([tf.size(tokens)], sampling_rate) / word_freq_table.lookup(tokens))
+    freq = word_count_table.lookup(tokens) / total_count
+    return 1 - tf.sqrt(sampling_rate / freq)
 
 
-def filter_tokens_mask(tokens, min_count, sampling_rate, word_count_table,
-                       word_freq_table):
+
+def filter_tokens_mask(tokens, sampling_rate, word_count_table, total_count):
     """Filter tokens in a sentence.
 
     Remove unfrequent words (words with count < min_count) and apply
     subsampling according to the original W2V paper.
+    The word_count_table already contains words with counts >= min_count
+    and its default value is 0, hence the tf.greater(..., 0) condition.
     """
     return tf.logical_and(
-        tf.greater_equal(word_count_table.lookup(tokens),
-                         tf.fill([tf.size(tokens)],
-                                 tf.constant(min_count))),
-        tf.less(sample_prob(tokens, sampling_rate, word_freq_table),
+        tf.greater(word_count_table.lookup(tokens),
+                   tf.constant(0, dtype=tf.float64)),
+        tf.less(sample_prob(tokens, sampling_rate, word_count_table,
+                            total_count),
                 tf.random_uniform(shape=[tf.size(tokens)],
-                                  minval=0, maxval=1, dtype=tf.float32)))
+                                  minval=0, maxval=1, dtype=tf.float64)))
+
+
+def sample_tokens(tokens, sampling_rate, word_count_table, total_count):
+    return tf.boolean_mask(tokens, filter_tokens_mask(
+            tokens, sampling_rate, word_count_table, total_count))
 
 
 def get_w2v_train_dataset(training_data_filepath, train_mode,
-                          word_count_dict, window_size, min_count,
+                          words, counts, total_count, window_size,
                           sampling_rate, batch_size, num_epochs,
                           p_num_threads, shuffling_buffer_size):
     """Generate a Tensorflow Dataset for a Word2Vec model."""
-    word_count_table = vocab_utils.get_tf_word_count_table(word_count_dict,
-                                                           min_count)
-    word_freq_table = vocab_utils.get_tf_word_freq_table(word_count_dict,
-                                                         min_count)
+    word_count_table = vocab_utils.get_tf_word_count_table(words, counts)
     return (tf.data.TextLineDataset(training_data_filepath)
             .map(tf.strings.strip, num_parallel_calls=p_num_threads)
             .filter(lambda x: tf.not_equal(tf.strings.length(x), 0))
             .map(lambda x: tf.strings.split([x]),
                  num_parallel_calls=p_num_threads)
-            .map(lambda x: tf.boolean_mask(
-                x.values, filter_tokens_mask(
-                    x.values, min_count, sampling_rate, word_count_table,
-                    word_freq_table)), num_parallel_calls=p_num_threads)
+            .map(lambda x: sample_tokens(x.values, sampling_rate,
+                                         word_count_table, total_count),
+                 num_parallel_calls=p_num_threads)
             .filter(lambda x: tf.greater(tf.size(x), 1))  # Keep examples with
                                                           # at least 2 tokens
             .map(lambda x: extract_examples(x, train_mode, window_size,

@@ -44,11 +44,11 @@ def _train(args):
             logger.warning('Re-building vocabulary from scratch')
         vocab_filepath = futils.get_vocab_filepath(args.datafile,
                                                    output_model_dirpath)
-        w2v.build_vocab(args.datafile, vocab_filepath)
+        w2v.build_vocab(args.datafile, vocab_filepath, args.min_count)
     else:
-        w2v.load_vocab(args.vocab)
+        w2v.load_vocab(args.vocab, args.min_count)
     w2v.train(args.train_mode, args.datafile, output_model_dirpath,
-              args.min_count, args.batch, args.size, args.neg, args.alpha,
+              args.batch, args.size, args.neg, args.alpha,
               args.window, args.epochs, args.sample, args.p_num_threads,
               args.t_num_threads, args.shuffling_buffer_size,
               args.save_summary_steps,

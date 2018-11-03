@@ -23,9 +23,9 @@ class Word2Vec():
 
     def __init__(self):
         """Initialize vocab dictionaries."""
-        # Needs to make sure dict is ordered to always get the same
-        # lookup table
-        self._word_count_dict = OrderedDict()
+        self._words = []
+        self._counts = []
+        self._total_count = 0
 
     @property
     def vocab_size(self):
@@ -34,38 +34,49 @@ class Word2Vec():
         Since we use len(word_freq_dict) as the default index for UKN in
         the index_table, we have to add 1 to the length
         """
-        return len(self._word_count_dict) + 1
+        return len(self._words) + 1
 
-    def build_vocab(self, data_filepath, vocab_filepath):
+    def build_vocab(self, data_filepath, vocab_filepath, min_count):
         """Create vocabulary-related data."""
         logger.info('Building vocabulary from file {}'.format(data_filepath))
-        logger.info('Loading word frequencies...')
+        logger.info('Loading word counts...')
         if self.vocab_size > 1:
             logger.warning('This instance of W2V\'s vocabulary does not seem '
                            'to be empty. Erasing previously stored vocab...')
+            self._words, self._counts, self._total_count = [], [], 0
+        word_count_dict = OrderedDict()
         with open(data_filepath, 'r') as data_stream:
             for line in data_stream:
                 for word in line.strip().split():
-                    if word not in self._word_count_dict:
-                        self._word_count_dict[word] = 1
+                    if word not in word_count_dict:
+                        word_count_dict[word] = 1
                     else:
-                        self._word_count_dict[word] += 1
+                        word_count_dict[word] += 1
         logger.info('Saving word frequencies to file: {}'.format(vocab_filepath))
         with open(vocab_filepath, 'w') as vocab_stream:
-            for key, value in self._word_count_dict.items():
-                print('{}\t{}'.format(key, value), file=vocab_stream)
+            for word, count in word_count_dict.items():
+                print('{}\t{}'.format(word, count), file=vocab_stream)
+                if count >= min_count:
+                    self._words.append(word)
+                    self._counts.append(count)
+                    self._total_count += count
 
-    def load_vocab(self, vocab_filepath):
+    def load_vocab(self, vocab_filepath, min_count):
         """Load a previously saved vocabulary file."""
-        logger.info('Loading word frequencies from file {}'
-                    .format(vocab_filepath))
+        logger.info('Loading word counts from file {}'.format(vocab_filepath))
+        self._words, self._counts, self._total_count = [], [], 0
         with open(vocab_filepath, 'r', encoding='UTF-8') as vocab_stream:
             for line in vocab_stream:
-                word_freq = line.strip().split('\t', 1)
-                self._word_count_dict[word_freq[0]] = int(word_freq[1])
+                word_count = line.strip().split('\t', 1)
+                word, count = word_count[0], int(word_count[1])
+                if count >= min_count:
+                    self._words.append(word)
+                    self._counts.append(count)
+                    self._total_count += count
+        logger.info('Done loading word counts')
 
     def train(self, train_mode, training_data_filepath, model_dirpath,
-              min_count, batch_size, embedding_size, num_neg_samples,
+              batch_size, embedding_size, num_neg_samples,
               learning_rate, window_size, num_epochs, sampling_rate,
               p_num_threads, t_num_threads, shuffling_buffer_size,
               save_summary_steps, save_checkpoints_steps, keep_checkpoint_max,
@@ -79,8 +90,8 @@ class Word2Vec():
         sess_config = tf.ConfigProto(log_device_placement=True)
         sess_config.intra_op_parallelism_threads = t_num_threads
         sess_config.inter_op_parallelism_threads = t_num_threads
-        sess_config.graph_options.optimizer_options.global_jit_level = \
-         tf.OptimizerOptions.ON_1  # JIT compilation on GPU
+        # sess_config.graph_options.optimizer_options.global_jit_level = \
+        #  tf.OptimizerOptions.ON_1  # JIT compilation on GPU
         run_config = tf.estimator.RunConfig(
             session_config=sess_config, save_summary_steps=save_summary_steps,
             save_checkpoints_steps=save_checkpoints_steps,
@@ -97,8 +108,7 @@ class Word2Vec():
                 'embedding_size': embedding_size,
                 'num_neg_samples': num_neg_samples,
                 'learning_rate': learning_rate,
-                'word_count_dict': self._word_count_dict,
-                'min_count': min_count,
+                'words': self._words,
                 'p_num_threads': p_num_threads,
                 'men': MEN(os.path.join(
                     os.path.dirname(os.path.dirname(__file__)),
@@ -106,8 +116,8 @@ class Word2Vec():
             })
         estimator.train(
             input_fn=lambda: datasets_utils.get_w2v_train_dataset(
-                training_data_filepath, train_mode, self._word_count_dict,
-                window_size, min_count, sampling_rate, batch_size,
+                training_data_filepath, train_mode, self._words, self._counts,
+                self._total_count, window_size, sampling_rate, batch_size,
                 num_epochs, p_num_threads, shuffling_buffer_size),
             hooks=[tf.train.ProfilerHook(
                 save_steps=save_summary_steps, show_dataflow=True,
