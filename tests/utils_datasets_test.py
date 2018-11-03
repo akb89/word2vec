@@ -10,14 +10,40 @@ from nonce2vec.estimators.word2vec import Word2Vec
 
 class DatasetsUtilsTest(tf.test.TestCase):
 
+    def test_skipgram_concat_to_features_and_labels(self):
+        with self.test_session():
+            train_mode = 'skipgram'
+            window_size = 3
+            tokens = tf.constant(['this', 'is', 'a', 'test', 'sent'])
+            features = tf.constant([], dtype=tf.string)
+            labels = tf.constant([], shape=[0, 1], dtype=tf.string)
+            idx = tf.constant(0)
+            features, labels, idx = \
+             datasets_utils.concat_to_features_and_labels(
+                 tokens, train_mode, window_size)(features, labels, idx)
+            self.assertAllEqual(labels, tf.constant(
+                [[b'is'], [b'a'], [b'test']]))
+            self.assertAllEqual(features, tf.constant(
+                [b'this', b'this', b'this']))
+            features, labels, _ = \
+             datasets_utils.concat_to_features_and_labels(
+                 tokens, train_mode, window_size)(features, labels, idx)
+            self.assertAllEqual(labels, tf.constant(
+                [[b'is'], [b'a'], [b'test'], [b'this'], [b'a'], [b'test'], [b'sent']]))
+            self.assertAllEqual(features, tf.constant(
+                [b'this', b'this', b'this', b'is', b'is', b'is', b'is']))
+
+
     def test_sample_prob(self):
         with self.test_session() as session:
             sampling_rate = 1e-5
+            min_count = 1
             vocab_filepath = os.path.join(os.path.dirname(__file__),
                                           'resources', 'wiki.test.vocab')
             w2v = Word2Vec()
             w2v.load_vocab(vocab_filepath)
-            word_freq_table = vocab_utils.get_tf_word_freq_table(w2v._word_count_dict)
+            word_freq_table = vocab_utils.get_tf_word_freq_table(
+                w2v._word_count_dict, min_count)
             test_data_filepath = os.path.join(os.path.dirname(__file__),
                                               'resources', 'data.txt')
             tf.tables_initializer().run()
@@ -48,8 +74,10 @@ class DatasetsUtilsTest(tf.test.TestCase):
                                           'resources', 'wiki.test.vocab')
             w2v = Word2Vec()
             w2v.load_vocab(vocab_filepath)
-            word_count_table = vocab_utils.get_tf_word_count_table(w2v._word_count_dict)
-            word_freq_table = vocab_utils.get_tf_word_freq_table(w2v._word_count_dict)
+            word_count_table = vocab_utils.get_tf_word_count_table(
+                w2v._word_count_dict, min_count)
+            word_freq_table = vocab_utils.get_tf_word_freq_table(
+                w2v._word_count_dict, min_count)
             tf.tables_initializer().run()
             dataset = (tf.data.TextLineDataset(test_data_filepath)
                        .map(tf.strings.strip)

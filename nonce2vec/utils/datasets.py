@@ -52,7 +52,7 @@ def concat_to_features_and_labels(tokens, train_mode, window_size):
             return tf.concat([features, padded_ctx_features], axis=0), \
                    tf.concat([labels, label], axis=0), target_idx+1
         if train_mode == 'skipgram':
-            label = tf.gather(tokens, ctxs)
+            label = tf.reshape(tf.gather(tokens, ctxs), [-1, 1])
             feature = tf.fill([tf.size(label)], tokens[target_idx])
             return tf.concat([features, feature], axis=0), \
                    tf.concat([labels, label], axis=0), target_idx+1
@@ -74,14 +74,24 @@ def extract_examples(tokens, train_mode, window_size, p_num_threads):
                                                 window_size)
     max_size = tf.size(tokens, out_type=tf.int32)
     idx_below_tokens_size = lambda w, x, idx: tf.less(idx, max_size)
-    result = tf.while_loop(
-        cond=idx_below_tokens_size,
-        body=concat_func,
-        loop_vars=[features, labels, target_idx],
-        shape_invariants=[tf.TensorShape([None, 2*window_size]),
-                          tf.TensorShape([None, 1]),
-                          target_idx.get_shape()],
-        parallel_iterations=p_num_threads)
+    if train_mode == 'cbow':
+        result = tf.while_loop(
+            cond=idx_below_tokens_size,
+            body=concat_func,
+            loop_vars=[features, labels, target_idx],
+            shape_invariants=[tf.TensorShape([None, 2*window_size]),
+                              tf.TensorShape([None, 1]),
+                              target_idx.get_shape()],
+            parallel_iterations=p_num_threads)
+    elif train_mode == 'skipgram':
+        result = tf.while_loop(
+            cond=idx_below_tokens_size,
+            body=concat_func,
+            loop_vars=[features, labels, target_idx],
+            shape_invariants=[tf.TensorShape([None]),
+                              tf.TensorShape([None, 1]),
+                              target_idx.get_shape()],
+            parallel_iterations=p_num_threads)
     return result[0], result[1]
 
 
@@ -111,8 +121,10 @@ def get_w2v_train_dataset(training_data_filepath, train_mode,
                           sampling_rate, batch_size, num_epochs,
                           p_num_threads, shuffling_buffer_size):
     """Generate a Tensorflow Dataset for a Word2Vec model."""
-    word_count_table = vocab_utils.get_tf_word_count_table(word_count_dict)
-    word_freq_table = vocab_utils.get_tf_word_freq_table(word_count_dict)
+    word_count_table = vocab_utils.get_tf_word_count_table(word_count_dict,
+                                                           min_count)
+    word_freq_table = vocab_utils.get_tf_word_freq_table(word_count_dict,
+                                                         min_count)
     return (tf.data.TextLineDataset(training_data_filepath)
             .map(tf.strings.strip, num_parallel_calls=p_num_threads)
             .filter(lambda x: tf.not_equal(tf.strings.length(x), 0))
