@@ -9,7 +9,7 @@ import argparse
 import logging
 import logging.config
 
-from nonce2vec.models.word2vec import Word2Vec
+from nonce2vec.estimators.word2vec import Word2Vec
 
 import nonce2vec.utils.config as cutils
 import nonce2vec.utils.files as futils
@@ -92,7 +92,7 @@ def main():
                                                   'shuffling training data')
     parser_train.add_argument('--save-summary-steps', type=int,
                               default=100000, help='save summaries every this '
-                                                    'many steps')
+                                                   'many steps')
     parser_train.add_argument('--save-checkpoints-steps', type=int,
                               default=1000000, help='save checkpoints every '
                                                     'this many steps')
