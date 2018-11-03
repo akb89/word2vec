@@ -24,7 +24,7 @@ setup(
     platforms=['any'],
     packages=['nonce2vec', 'nonce2vec.utils', 'nonce2vec.models',
               'nonce2vec.exceptions', 'nonce2vec.logging',
-              'nonce2vec.learning', 'nonce2vec.evaluation'],
+              'nonce2vec.estimators', 'nonce2vec.evaluation'],
     package_data={'nonce2vec': ['logging/*.yml', 'resources/*']},
     include_package_data=True,
     entry_points={
