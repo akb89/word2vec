@@ -26,11 +26,13 @@ class VocabUtilsTest(tf.test.TestCase):
 
     def test_get_word_count_table(self):
         with self.test_session():
+            min_count = 1
             vocab_filepath = os.path.join(os.path.dirname(__file__),
                                           'resources', 'wiki.test.vocab')
             w2v = Word2Vec()
             w2v.load_vocab(vocab_filepath)
-            word_count = vocab_utils.get_tf_word_count_table(w2v._word_count_dict)
+            word_count = vocab_utils.get_tf_word_count_table(
+                w2v._word_count_dict, min_count)
             tf.tables_initializer().run()
             self.assertAllEqual(
                 word_count.lookup(tf.constant(['anarchism', 'is', 'UKN@!',
@@ -39,11 +41,13 @@ class VocabUtilsTest(tf.test.TestCase):
 
     def test_get_word_freq_table(self):
         with self.test_session():
+            min_count = 1
             vocab_filepath = os.path.join(os.path.dirname(__file__),
                                           'resources', 'wiki.test.vocab')
             w2v = Word2Vec()
             w2v.load_vocab(vocab_filepath)
-            word_freq = vocab_utils.get_tf_word_freq_table(w2v._word_count_dict)
+            word_freq = vocab_utils.get_tf_word_freq_table(
+                w2v._word_count_dict, min_count)
             tf.tables_initializer().run()
             self.assertAllEqual(
                 word_freq.lookup(tf.constant(['anarchism', 'is', 'UKN@!',

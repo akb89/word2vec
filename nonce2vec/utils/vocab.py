@@ -21,21 +21,32 @@ def get_tf_vocab_table(word_count_dict, min_count):
             default_value=len(word_count_dict))
 
 
-def get_tf_word_count_table(word_count_dict):
+def get_tf_word_count_table(word_count_dict, min_count):
     """Convert a python OrderedDict to a TF HashTable mapping words to
-    their respective corpus counts."""
+    their respective corpus counts.
+    Using min_count limits the size of the table
+    """
     with tf.name_scope('word_count'):
         return tf.contrib.lookup.HashTable(
             tf.contrib.lookup.KeyValueTensorInitializer(
-                [*word_count_dict.keys()], [*word_count_dict.values()]),
+                [word for word, count in word_count_dict.items()
+                 if count >= min_count],
+                [count for word, count in word_count_dict.items()
+                 if count >= min_count]),
             default_value=0)
 
 
-def get_tf_word_freq_table(word_count_dict):
+def get_tf_word_freq_table(word_count_dict, min_count):
+    """Convert a python OrderedDict to a TF HashTable mapping words to
+    their respective corpus frequencies.
+    Using min_count limits the size of the table
+    """
     total_count = sum(count for count in word_count_dict.values())
     with tf.name_scope('word_count'):
         return tf.contrib.lookup.HashTable(
             tf.contrib.lookup.KeyValueTensorInitializer(
-                [*word_count_dict.keys()],
-                [count/total_count for count in word_count_dict.values()]),
+                [word for word, count in word_count_dict.items()
+                 if count >= min_count],
+                [count/total_count for word, count in word_count_dict.items()
+                 if count >= min_count]),
             default_value=0)
