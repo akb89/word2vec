@@ -80,7 +80,7 @@ class Word2Vec():
               learning_rate, window_size, num_epochs, sampling_rate,
               p_num_threads, t_num_threads, shuffling_buffer_size,
               save_summary_steps, save_checkpoints_steps, keep_checkpoint_max,
-              log_step_count_steps):
+              log_step_count_steps, debug=False, debug_hook_name=None):
         """Train Word2Vec."""
         if self.vocab_size == 1:
             raise Exception('You need to build or load a vocabulary before '
@@ -114,12 +114,21 @@ class Word2Vec():
                     os.path.dirname(os.path.dirname(__file__)),
                     'resources', 'MEN_dataset_natural_form_full'))
             })
+        if debug:
+            if not debug_hook_name:
+                raise Exception('You need to specify the --debug-hook-name '
+                                'parameter when passing --debug')
+            hooks = [tf.train.ProfilerHook(
+                save_steps=save_summary_steps, show_dataflow=True,
+                show_memory=True, output_dir=model_dirpath),
+                     tf_debug.TensorBoardDebugHook(debug_hook_name)]
+        else:
+            hooks = [tf.train.ProfilerHook(
+                save_steps=save_summary_steps, show_dataflow=True,
+                show_memory=True, output_dir=model_dirpath)]
         estimator.train(
             input_fn=lambda: datasets_utils.get_w2v_train_dataset(
                 training_data_filepath, train_mode, self._words, self._counts,
                 self._total_count, window_size, sampling_rate, batch_size,
                 num_epochs, p_num_threads, shuffling_buffer_size),
-            hooks=[tf.train.ProfilerHook(
-                save_steps=save_summary_steps, show_dataflow=True,
-                show_memory=True, output_dir=model_dirpath)])
-                   #tf_debug.TensorBoardDebugHook('AKB-2.local:6007')])
+            hooks=hooks)
