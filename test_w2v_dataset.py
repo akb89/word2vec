@@ -45,10 +45,10 @@ if __name__ == '__main__':
         start = time.monotonic()
         while True:
             try:
-                print('step {}'.format(i))
+                #print('step {}'.format(i))
                 features, labels = session.run(x)
-                print(features)
-                print(labels)
+                #print(features)
+                #print(labels)
                 i += 1
             except tf.errors.OutOfRangeError:
                 end = time.monotonic()
