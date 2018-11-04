@@ -52,12 +52,7 @@ def avg_ctx_features_embeddings(features, embeddings, vocab, p_num_threads):
     return avg
 
 
-def model(features, labels, mode, params):
-    """Return the model_fn function of a TF Estimator for a Word2Vec model."""
-    if params['mode'] not in ['cbow', 'skipgram']:
-        raise Exception('Unsupported Word2Vec mode \'{}\''
-                        .format(params['mode']))
-    #with tf.contrib.compiler.jit.experimental_jit_scope():
+def _model(features, labels, mode, params):
     vocab_table = vocab_utils.get_tf_vocab_table(params['words'])
     with tf.name_scope('hidden'):
         embeddings = tf.get_variable(
@@ -106,3 +101,15 @@ def model(features, labels, mode, params):
     tf.summary.scalar('MEN', men_correlation[1])
     return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=optimizer,
                                       eval_metric_ops=metrics)
+
+
+def model(features, labels, mode, params):
+    """Return the model_fn function of a TF Estimator for a Word2Vec model."""
+    if params['mode'] not in ['cbow', 'skipgram']:
+        raise Exception('Unsupported Word2Vec mode \'{}\''
+                        .format(params['mode']))
+    if params['xla']:
+        with tf.contrib.compiler.jit.experimental_jit_scope():
+            return _model(features, labels, mode, params)
+    else:
+        return _model(features, labels, mode, params)

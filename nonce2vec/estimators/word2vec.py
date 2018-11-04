@@ -80,7 +80,8 @@ class Word2Vec():
               learning_rate, window_size, num_epochs, sampling_rate,
               p_num_threads, t_num_threads, shuffling_buffer_size,
               save_summary_steps, save_checkpoints_steps, keep_checkpoint_max,
-              log_step_count_steps, debug=False, debug_hook_name=None):
+              log_step_count_steps, debug=False, debug_hook_name=None,
+              xla=False):
         """Train Word2Vec."""
         if self.vocab_size == 1:
             raise Exception('You need to build or load a vocabulary before '
@@ -90,8 +91,9 @@ class Word2Vec():
         sess_config = tf.ConfigProto(log_device_placement=True)
         sess_config.intra_op_parallelism_threads = t_num_threads
         sess_config.inter_op_parallelism_threads = t_num_threads
-        # sess_config.graph_options.optimizer_options.global_jit_level = \
-        #  tf.OptimizerOptions.ON_1  # JIT compilation on GPU
+        # if xla:
+        #     sess_config.graph_options.optimizer_options.global_jit_level = \
+        #      tf.OptimizerOptions.ON_1  # JIT compilation on GPU
         run_config = tf.estimator.RunConfig(
             session_config=sess_config, save_summary_steps=save_summary_steps,
             save_checkpoints_steps=save_checkpoints_steps,
@@ -110,6 +112,7 @@ class Word2Vec():
                 'learning_rate': learning_rate,
                 'words': self._words,
                 'p_num_threads': p_num_threads,
+                'xla': xla,
                 'men': MEN(os.path.join(
                     os.path.dirname(os.path.dirname(__file__)),
                     'resources', 'MEN_dataset_natural_form_full'))
