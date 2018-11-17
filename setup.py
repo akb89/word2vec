@@ -10,13 +10,13 @@ with open('README.md', 'r') as fh:
     long_description = fh.read()
 
 setup(
-    name='nonce2vec',
-    description='A python module to generate word embeddings from tiny data',
+    name='nonce2vec@3',
+    description='Incremental learning in Word2Vec with Tensorflow Estimators and Datasets',
     author=' Alexandre Kabbach and Aurélie Herbelot',
     author_email='akb@3azouz.net',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    version='3.0.0',
+    version='3.0.0a0',
     url='https://github.com/minimalparts/nonce2vec',
     download_url='https://github.com/minimalparts/nonce2vec/archive/2.0.0.tar.gz',
     license='MIT',
@@ -33,10 +33,7 @@ setup(
         ],
     },
     test_suite='tests',
-    install_requires=['PyYAML==3.13', 'natsort==5.4.1'],
-    dependency_links=[
-        'https://github.com/akb89/wikiextractor/tarball/master#egg=wikiextractor-3.0.3',
-        'https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-2.0.0/en_core_web_sm-2.0.0.tar.gz'],
+    install_requires=['PyYAML==3.13'],
     classifiers=['Development Status :: 2 - Pre-Alpha',
                  'Environment :: Web Environment',
                  'Intended Audience :: Developers',

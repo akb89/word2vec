@@ -9,3 +9,11 @@ data
 .pytest_cache
 *.7z
 experiments/
+debug_cbow.py
+test_n2v.sh
+test_py.py
+test_tf_skg.py
+test_tf.py
+test_vocab.py
+test_w2v_dataset.py
+run_n2v.py
