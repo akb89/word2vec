@@ -17,3 +17,9 @@ test_tf.py
 test_vocab.py
 test_w2v_dataset.py
 run_n2v.py
+nonce2vec/_main.py
+nonce2vec/main.back.py
+dist/
+nonce2vec/models/nonce2vec.bak.py
+nonce2vec/models/word2vec.bak.py
+nonce2vec/models/informativeness.py

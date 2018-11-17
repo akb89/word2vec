@@ -9,19 +9,10 @@ handlers:
     class: logging.StreamHandler
     formatter: simple
 loggers:
-  gensim:
-    level: INFO
-    handlers: [console]
   nonce2vec.main:
     level: INFO
     handlers: [console]
   nonce2vec.utils:
-    level: INFO
-    handlers: [console]
-  nonce2vec.models.informativeness:
-    level: INFO
-    handlers: [console]
-  nonce2vec.models.nonce2vec:
     level: INFO
     handlers: [console]
   nonce2vec.models.word2vec:
