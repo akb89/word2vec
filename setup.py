@@ -29,7 +29,7 @@ setup(
     include_package_data=True,
     entry_points={
         'console_scripts': [
-            'n2v = nonce2vec.main:main'
+            'n2v3 = nonce2vec.main:main'
         ],
     },
     test_suite='tests',
