@@ -23,3 +23,4 @@ dist/
 nonce2vec/models/nonce2vec.bak.py
 nonce2vec/models/word2vec.bak.py
 nonce2vec/models/informativeness.py
+BACKGROUND.md
