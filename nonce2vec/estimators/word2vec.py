@@ -2,7 +2,7 @@
 
 import os
 
-from collections import OrderedDict
+from collections import defaultdict
 import logging
 import tensorflow as tf
 
@@ -44,17 +44,18 @@ class Word2Vec():
             logger.warning('This instance of W2V\'s vocabulary does not seem '
                            'to be empty. Erasing previously stored vocab...')
             self._words, self._counts, self._total_count = [], [], 0
-        word_count_dict = OrderedDict()
+        word_count_dict = defaultdict(int)
         with open(data_filepath, 'r') as data_stream:
             for line in data_stream:
                 for word in line.strip().split():
-                    if word not in word_count_dict:
-                        word_count_dict[word] = 1
-                    else:
-                        word_count_dict[word] += 1
+                    word_count_dict[word] += 1
         logger.info('Saving word frequencies to file: {}'.format(vocab_filepath))
         with open(vocab_filepath, 'w') as vocab_stream:
-            for word, count in word_count_dict.items():
+            # words need to be sorted in decreasing frequency to be able
+            # to rely on the default tf.nn.log_uniform_candidate_sampler
+            # later on in the tf.nn.nce_loss
+            for word, count in sorted(word_count_dict.items(),
+                                      key=lambda x: x[1], reverse=True):
                 print('{}\t{}'.format(word, count), file=vocab_stream)
                 if count >= min_count:
                     self._words.append(word)
