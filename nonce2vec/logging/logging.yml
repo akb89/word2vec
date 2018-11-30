@@ -9,10 +9,16 @@ handlers:
     class: logging.StreamHandler
     formatter: simple
 loggers:
+  tensorflow:
+    level: INFO
+    handlers: [console]
   nonce2vec.main:
     level: INFO
     handlers: [console]
   nonce2vec.utils:
+    level: INFO
+    handlers: [console]
+  nonce2vec.estimators.word2vec:
     level: INFO
     handlers: [console]
   nonce2vec.models.word2vec:
