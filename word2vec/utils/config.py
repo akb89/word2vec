@@ -6,9 +6,9 @@ Methods used to manipulate YAML-based configuration files.
 import logging
 import yaml
 
-from nonce2vec.exceptions.method import InvalidMethodError
-from nonce2vec.exceptions.parameter import InvalidParameterError
-from nonce2vec.utils.immutables import ImmutableConfig
+from word2vec.exceptions.method import InvalidMethodError
+from word2vec.exceptions.parameter import InvalidParameterError
+from word2vec.utils.immutables import ImmutableConfig
 
 __all__ = ('load')
 

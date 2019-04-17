@@ -2,7 +2,7 @@ import os
 
 import tensorflow as tf
 
-from nonce2vec.evaluation.men import MEN
+from word2vec.evaluation.men import MEN
 
 
 class MENEvaluationTest(tf.test.TestCase):

@@ -5,7 +5,7 @@ import logging
 import math
 import tensorflow as tf
 
-import nonce2vec.utils.vocab as vocab_utils
+import word2vec.utils.vocab as vocab_utils
 
 logger = logging.getLogger(__name__)
 

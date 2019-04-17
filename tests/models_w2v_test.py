@@ -3,10 +3,10 @@ import os
 import tensorflow as tf
 import numpy as np
 
-import nonce2vec.models.word2vec as w2v_model
-import nonce2vec.utils.vocab as vocab_utils
+import word2vec.models.word2vec as w2v_model
+import word2vec.utils.vocab as vocab_utils
 
-from nonce2vec.estimators.word2vec import Word2Vec
+from word2vec.estimators.word2vec import Word2Vec
 
 
 class W2VEstimatorTest(tf.test.TestCase):

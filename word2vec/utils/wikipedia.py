@@ -8,7 +8,7 @@ import wikiextractor
 
 import logging
 
-import nonce2vec.utils.files as futils
+import word2vec.utils.files as futils
 
 logger = logging.getLogger(__name__)
 

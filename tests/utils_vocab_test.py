@@ -2,8 +2,8 @@ import os
 
 import tensorflow as tf
 
-import nonce2vec.utils.vocab as vocab_utils
-from nonce2vec.estimators.word2vec import Word2Vec
+import word2vec.utils.vocab as vocab_utils
+from word2vec.estimators.word2vec import Word2Vec
 
 
 class VocabUtilsTest(tf.test.TestCase):

@@ -1,7 +1,7 @@
 """Custom immutable objects."""
 
-from nonce2vec.exceptions.method import InvalidMethodError
-from nonce2vec.exceptions.parameter import InvalidParameterError
+from word2vec.exceptions.method import InvalidMethodError
+from word2vec.exceptions.parameter import InvalidParameterError
 
 __all__ = ('FrozenDict', 'ImmutableConfig')
 

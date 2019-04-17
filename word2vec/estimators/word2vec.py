@@ -6,10 +6,10 @@ from collections import defaultdict
 import logging
 import tensorflow as tf
 
-import nonce2vec.utils.datasets as datasets_utils
-import nonce2vec.models.word2vec as w2v_model
+import word2vec.utils.datasets as datasets_utils
+import word2vec.models.word2vec as w2v_model
 
-from nonce2vec.evaluation.men import MEN
+from word2vec.evaluation.men import MEN
 
 from tensorflow.python import debug as tf_debug
 

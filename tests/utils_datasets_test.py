@@ -3,10 +3,10 @@ import os
 import tensorflow as tf
 import math
 
-import nonce2vec.utils.datasets as datasets_utils
-import nonce2vec.utils.vocab as vocab_utils
+import word2vec.utils.datasets as datasets_utils
+import word2vec.utils.vocab as vocab_utils
 
-from nonce2vec.estimators.word2vec import Word2Vec
+from word2vec.estimators.word2vec import Word2Vec
 
 
 class DatasetsUtilsTest(tf.test.TestCase):

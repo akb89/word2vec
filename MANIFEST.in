@@ -1,2 +1,2 @@
-include nonce2vec/logging/logging.yml
-include nonce2vec/resources/MEN_dataset_natural_form_full
+include word2vec/logging/logging.yml
+include word2vec/resources/MEN_dataset_natural_form_full

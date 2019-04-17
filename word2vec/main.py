@@ -1,4 +1,4 @@
-"""Welcome to Nonce2Vec.
+"""Welcome to word2vec.
 
 This is the entry point of the application.
 """
@@ -9,10 +9,10 @@ import argparse
 import logging
 import logging.config
 
-from nonce2vec.estimators.word2vec import Word2Vec
+from word2vec.estimators.word2vec import Word2Vec
 
-import nonce2vec.utils.config as cutils
-import nonce2vec.utils.files as futils
+import word2vec.utils.config as cutils
+import word2vec.utils.files as futils
 
 logging.config.dictConfig(
     cutils.load(
@@ -58,8 +58,8 @@ def _train(args):
 
 
 def main():
-    """Launch Nonce2Vec."""
-    parser = argparse.ArgumentParser(prog='nonce2vec')
+    """Launch word2vec."""
+    parser = argparse.ArgumentParser(prog='word2vec')
     subparsers = parser.add_subparsers()
     parser_train = subparsers.add_parser(
         'train', formatter_class=argparse.RawTextHelpFormatter,

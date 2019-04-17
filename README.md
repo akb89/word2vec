@@ -1,27 +1,24 @@
-# Nonce2Vec
+# Word2Vec
 
 [![GitHub release][release-image]][release-url]
 [![PyPI release][pypi-image]][pypi-url]
 [![Build][travis-image]][travis-url]
 [![MIT License][license-image]][license-url]
 
-Welcome to Nonce2Vec!
-
-**NEW** Nonce2Vec v3 went through a complete refactoring. Its architecture
-is now designed around Tensorflow Estimators and Datasets.
+This is a re-implementation of Word2Vec relying on Tensorflow
+[Estimators](https://www.tensorflow.org/guide/estimators) and
+[Datasets](https://www.tensorflow.org/guide/datasets_for_estimators)
 
 ## Install
 ```shell
-pip3 install nonce2vec@3
+python3 setup.py install
 ```
 
 ## Train Word2Vec
-You can train a Tensorflow implementation of Word2Vec via Non2Vec:
-
 ```shell
 n2v3 train \
-  --data /home/kabbach/nonce2vec/data/enwiki.opt.txt \
-  --outputdir /home/kabbach/nonce2vec/models \
+  --data /home/kabbach/word2vec/data/enwiki.opt.txt \
+  --outputdir /home/kabbach/word2vec/models \
   --alpha 0.025 \
   --neg 5 \
   --window 15 \
@@ -40,11 +37,11 @@ n2v3 train \
   --log-step-count-steps 10000
 ```
 
-[release-image]:https://img.shields.io/github/release/minimalparts/nonce2vec.svg?style=flat-square
-[release-url]:https://github.com/minimalparts/nonce2vec/releases/latest
-[pypi-image]:https://img.shields.io/pypi/v/nonce2vec.svg?style=flat-square
-[pypi-url]:https://pypi.org/project/nonce2vec/
-[travis-image]:https://img.shields.io/travis/minimalparts/nonce2vec.svg?style=flat-square
-[travis-url]:https://travis-ci.org/minimalparts/nonce2vec
+[release-image]:https://img.shields.io/github/release/akb89/word2vec.svg?style=flat-square
+[release-url]:https://github.com/akb89/word2vec/releases/latest
+[pypi-image]:https://img.shields.io/pypi/v/word2vec.svg?style=flat-square
+[pypi-url]:https://pypi.org/project/word2vec/
+[travis-image]:https://img.shields.io/travis/akb89/word2vec.svg?style=flat-square
+[travis-url]:https://travis-ci.org/akb89/word2vec
 [license-image]:http://img.shields.io/badge/license-MIT-000000.svg?style=flat-square
 [license-url]:LICENSE.txt

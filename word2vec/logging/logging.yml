@@ -12,15 +12,15 @@ loggers:
   tensorflow:
     level: INFO
     handlers: [console]
-  nonce2vec.main:
+  word2vec.main:
     level: INFO
     handlers: [console]
-  nonce2vec.utils:
+  word2vec.utils:
     level: INFO
     handlers: [console]
-  nonce2vec.estimators.word2vec:
+  word2vec.estimators.word2vec:
     level: INFO
     handlers: [console]
-  nonce2vec.models.word2vec:
+  word2vec.models.word2vec:
     level: INFO
     handlers: [console]
