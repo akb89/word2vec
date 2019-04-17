@@ -16,9 +16,9 @@ python3 setup.py install
 
 ## Train Word2Vec
 ```shell
-n2v3 train \
-  --data /home/kabbach/word2vec/data/enwiki.opt.txt \
-  --outputdir /home/kabbach/word2vec/models \
+w2v train \
+  --data /absolute/path/to/enwiki.opt.txt \
+  --outputdir /absolute/path/to/word2vec/models \
   --alpha 0.025 \
   --neg 5 \
   --window 15 \
@@ -39,8 +39,8 @@ n2v3 train \
 
 [release-image]:https://img.shields.io/github/release/akb89/word2vec.svg?style=flat-square
 [release-url]:https://github.com/akb89/word2vec/releases/latest
-[pypi-image]:https://img.shields.io/pypi/v/word2vec.svg?style=flat-square
-[pypi-url]:https://pypi.org/project/word2vec/
+[pypi-image]:https://img.shields.io/pypi/v/tf-word2vec.svg?style=flat-square
+[pypi-url]:https://pypi.org/project/tf-word2vec/
 [travis-image]:https://img.shields.io/travis/akb89/word2vec.svg?style=flat-square
 [travis-url]:https://travis-ci.org/akb89/word2vec
 [license-image]:http://img.shields.io/badge/license-MIT-000000.svg?style=flat-square
