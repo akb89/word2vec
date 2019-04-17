@@ -33,7 +33,7 @@ setup(
         ],
     },
     test_suite='tests',
-    install_requires=['pyyaml>=5.1', 'tensorflow>=1.13.1', 'numpy>=1.13.3'],
+    install_requires=['pyyaml>=5.1', 'tensorflow>=1.13.1', 'numpy>=1.14.5'],
     classifiers=['Development Status :: 2 - Pre-Alpha',
                  'Environment :: Web Environment',
                  'Intended Audience :: Developers',
