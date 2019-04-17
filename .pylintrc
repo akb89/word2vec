@@ -132,7 +132,7 @@ function-name-hint=(([a-z][a-z0-9_]{2,30})|(_[a-z0-9_]*))$
 function-rgx=(([a-z][a-z0-9_]{2,30})|(_[a-z0-9_]*))$
 
 # Good variable names which should always be accepted, separated by a comma
-good-names=logger,fe,vu
+good-names=logger,fe,vu,c1,c2,c3,t0,t1,t2,t3
 
 # Include a hint for the correct naming format with invalid-name
 include-naming-hint=yes

@@ -6,12 +6,12 @@ from collections import defaultdict
 import logging
 import tensorflow as tf
 
+from tensorflow.python import debug as tf_debug  # pylint: disable=E0611
+
 import word2vec.utils.datasets as datasets_utils
 import word2vec.models.word2vec as w2v_model
 
 from word2vec.evaluation.men import MEN
-
-from tensorflow.python import debug as tf_debug
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +76,7 @@ class Word2Vec():
                     self._total_count += count
         logger.info('Done loading word counts')
 
+    # pylint: disable=R0914
     def train(self, train_mode, training_data_filepath, model_dirpath,
               batch_size, embedding_size, num_neg_samples,
               learning_rate, window_size, num_epochs, sampling_rate,

@@ -35,6 +35,7 @@ def concat_mean_to_avg_tensor(features, vocab, embeddings):
 
 
 def avg_ctx_features_embeddings(features, embeddings, vocab, p_num_threads):
+    """Average context embeddings."""
     feat_batch_size = features.get_shape()[0]
     embedding_size = embeddings.get_shape()[1]
     idx_within_batch_size = lambda x, idx: tf.less(idx, feat_batch_size)

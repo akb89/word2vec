@@ -12,6 +12,7 @@ __all__ = ('get_w2v_train_dataset')
 
 
 def ctx_idxx(target_idx, window_size, tokens):
+    """Return positions of context words."""
     ctx_range = tf.range(start=tf.maximum(tf.constant(0, dtype=tf.int32),
                                           target_idx-window_size),
                          limit=tf.minimum(tf.size(tokens, out_type=tf.int32),
@@ -33,7 +34,9 @@ def ctx_idxx(target_idx, window_size, tokens):
     return tf.case({c1: t1, c2: t2, c3: t3}, default=t0, exclusive=True)
 
 
+# pylint: disable=R1710
 def concat_to_features_and_labels(tokens, train_mode, window_size):
+    """Concatenate features and labels into Tensor."""
     def internal_func(features, labels, target_idx):
         if train_mode not in ['cbow', 'skipgram']:
             raise Exception('Unsupported Word2Vec mode \'{}\''
@@ -120,7 +123,9 @@ def filter_tokens_mask(tokens, sampling_rate, word_count_table, total_count):
 
 
 def sample_tokens(tokens, sampling_rate, word_count_table, total_count):
-    return tf.boolean_mask(tokens, filter_tokens_mask(
+    """Apply subsampling to a set of tokens."""
+    return tf.boolean_mask(
+        tokens, filter_tokens_mask(
             tokens, sampling_rate, word_count_table, total_count))
 
 

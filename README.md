@@ -14,19 +14,25 @@ This is a re-implementation of Word2Vec relying on Tensorflow
 python3 setup.py install
 ```
 
+## Get data
+You can download a sample of the English Wikipedia here:
+```shell
+wget http://129.194.21.122/~kabbach/enwiki.20190120.sample10.0.balanced.txt.7z
+```
+
 ## Train Word2Vec
 ```shell
 w2v train \
-  --data /absolute/path/to/enwiki.opt.txt \
+  --data /absolute/path/to/enwiki.20190120.sample10.0.balanced.txt \
   --outputdir /absolute/path/to/word2vec/models \
   --alpha 0.025 \
   --neg 5 \
-  --window 15 \
+  --window 2 \
   --epochs 5 \
-  --size 400 \
+  --size 300 \
   --min-count 50 \
   --sample 1e-5 \
-  --train-mode cbow \
+  --train-mode skipgram \
   --t-num-threads 20 \
   --p-num-threads 25 \
   --keep-checkpoint-max 3 \

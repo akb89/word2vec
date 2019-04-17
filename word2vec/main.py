@@ -70,23 +70,23 @@ def main():
                               help='number of threads used for preprocessing')
     parser_train.add_argument('--t-num-threads', type=int, default=1,
                               help='number of threads used for training')
-    parser_train.add_argument('--alpha', type=float,
+    parser_train.add_argument('--alpha', type=float, default=0.025,
                               help='initial learning rate')
-    parser_train.add_argument('--neg', type=int,
+    parser_train.add_argument('--neg', type=int, default=5,
                               help='number of negative samples')
-    parser_train.add_argument('--window', type=int,
+    parser_train.add_argument('--window', type=int, default=2,
                               help='window size')
-    parser_train.add_argument('--sample', type=float,
+    parser_train.add_argument('--sample', type=float, default=1e-5,
                               help='subsampling rate')
-    parser_train.add_argument('--epochs', type=int,
+    parser_train.add_argument('--epochs', type=int, default=5,
                               help='number of epochs')
-    parser_train.add_argument('--min-count', type=int,
+    parser_train.add_argument('--min-count', type=int, default=50,
                               help='min frequency count')
     parser_train.add_argument('--data', required=True, dest='datafile',
                               help='absolute path to training data file')
-    parser_train.add_argument('--size', type=int, default=400,
+    parser_train.add_argument('--size', type=int, default=300,
                               help='vector dimensionality')
-    parser_train.add_argument('--batch', type=int, default=128,
+    parser_train.add_argument('--batch', type=int, default=1,
                               help='batch size')
     parser_train.add_argument('--shuffling-buffer-size', type=int,
                               default=10000, help='size of buffer to use for '
@@ -109,6 +109,7 @@ def main():
                                    'that the global step/sec and the loss will'
                                    ' be logged during training')
     parser_train.add_argument('--train-mode', choices=['cbow', 'skipgram'],
+                              default='skipgram',
                               help='how to train word2vec')
     parser_train.add_argument('--outputdir', required=True,
                               help='absolute path to outputdir to save model')
