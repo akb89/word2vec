@@ -10,7 +10,7 @@ with open('README.md', 'r') as fh:
     long_description = fh.read()
 
 setup(
-    name='word2vec',
+    name='tf-word2vec',
     description='Word2Vec implentation with Tensorflow Estimators and Datasets',
     author=' Alexandre Kabbach',
     author_email='akb@3azouz.net',
