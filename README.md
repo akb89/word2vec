@@ -10,6 +10,11 @@ This is a re-implementation of Word2Vec relying on Tensorflow
 [Datasets](https://www.tensorflow.org/guide/datasets_for_estimators)
 
 ## Install
+### Via pip
+```shell
+pip3 install tf-word2vec
+```
+### After a git clone
 ```shell
 python3 setup.py install
 ```
