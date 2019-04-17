@@ -53,8 +53,7 @@ def _train(args):
               args.t_num_threads, args.shuffling_buffer_size,
               args.save_summary_steps,
               args.save_checkpoints_steps, args.keep_checkpoint_max,
-              args.log_step_count_steps, args.debug, args.debug_hook_name,
-              args.xla)
+              args.log_step_count_steps, args.debug, args.debug_port, args.xla)
 
 
 def main():
@@ -118,8 +117,9 @@ def main():
                                    'Where to load and/or save the vocabulary')
     parser_train.add_argument('--debug', action='store_true',
                               help='set up a debugger hook for Tensorboard')
-    parser_train.add_argument('--debug-hook-name',
-                              help='the debugger hook name, in debug mode')
+    parser_train.add_argument('--debug-port', type=int, default=2333,
+                              help='the debugger port, as specified in '
+                                   'Tensorboard')
     parser_train.add_argument('--xla', action='store_true',
                               help='run Tensorflow with XLA JIT compilation')
     args = parser.parse_args()
