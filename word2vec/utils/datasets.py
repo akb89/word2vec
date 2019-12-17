@@ -104,7 +104,6 @@ def sample_prob(tokens, sampling_rate, word_count_table, total_count):
     return 1 - tf.sqrt(sampling_rate / freq)
 
 
-
 def filter_tokens_mask(tokens, sampling_rate, word_count_table, total_count):
     """Filter tokens in a sentence.
 
