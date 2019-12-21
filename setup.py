@@ -34,7 +34,7 @@ setup(
         ],
     },
     test_suite='tests',
-    install_requires=['pyyaml>=5.1', 'tensorflow>=1.15'],
+    install_requires=['pyyaml>=5.1', 'tensorflow==1.15'],
     classifiers=['Development Status :: 2 - Pre-Alpha',
                  'Environment :: Web Environment',
                  'Intended Audience :: Developers',
