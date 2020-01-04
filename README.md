@@ -7,7 +7,9 @@
 
 This is a re-implementation of Word2Vec relying on Tensorflow
 [Estimators](https://www.tensorflow.org/guide/estimators) and
-[Datasets](https://www.tensorflow.org/guide/datasets_for_estimators)
+[Datasets](https://www.tensorflow.org/guide/datasets_for_estimators).
+
+Works with python >= 3.6 and Tensorflow v2.0.
 
 ## Install
 After a git clone:
