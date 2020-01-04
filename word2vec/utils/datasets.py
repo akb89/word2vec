@@ -142,8 +142,8 @@ def get_w2v_train_dataset(training_data_filepath, train_mode,
             .map(lambda x: sample_tokens(x.values, sampling_rate,
                                          word_count_table, total_count),
                  num_parallel_calls=p_num_threads)
-            .filter(lambda x: tf.greater(tf.size(input=x), 1))  # Keep examples with
-                                                          # at least 2 tokens
+            # Keep examples with at least 2 tokens
+            .filter(lambda x: tf.greater(tf.size(input=x), 1))
             .map(lambda x: extract_examples(x, train_mode, window_size,
                                             p_num_threads),
                  num_parallel_calls=p_num_threads)

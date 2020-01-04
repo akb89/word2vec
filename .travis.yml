@@ -4,7 +4,8 @@ python:
   - "3.6"
 
 install:
-  - pip install tensorflow==2.0.0
+  - pip install tensorflow>=2.0.0
+  - pip install setuptools>=41.0.0
   - python setup.py -q install
   - pip install pylint pydocstyle
 
