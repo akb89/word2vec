@@ -6,7 +6,7 @@ from collections import defaultdict
 import logging
 import tensorflow as tf
 
-from tensorflow.python import debug as tf_debug  # pylint: disable=E0611
+# from tensorflow.python import debug as tf_debug  # pylint: disable=E0611
 
 import word2vec.utils.datasets as datasets_utils
 import word2vec.models.word2vec as w2v_model
@@ -121,15 +121,17 @@ class Word2Vec():
         # waiting for v2 fix in tf.summary.FileWriter:
         tf.compat.v1.disable_eager_execution()
         if debug:
-            hooks = [tf.estimator.ProfilerHook(
-                save_steps=save_summary_steps, show_dataflow=True,
-                show_memory=True, output_dir=model_dirpath),
-                     tf_debug.TensorBoardDebugHook('localhost:{}'
-                                                   .format(debug_port))]
-        else:
-            hooks = [tf.estimator.ProfilerHook(
-                save_steps=save_summary_steps, show_dataflow=True,
-                show_memory=True, output_dir=model_dirpath)]
+            raise Exception('Unsupported parameter: waiting for the TF team '
+                            'to release v2 equivalents for TensorBoardDebugHook')
+            # hooks = [tf.estimator.ProfilerHook(
+            #     save_steps=save_summary_steps, show_dataflow=True,
+            #     show_memory=True, output_dir=model_dirpath),
+            #          tf_debug.TensorBoardDebugHook('localhost:{}'
+            #                                        .format(debug_port))]
+        # else:
+        hooks = [tf.estimator.ProfilerHook(
+            save_steps=save_summary_steps, show_dataflow=True,
+            show_memory=True, output_dir=model_dirpath)]
         estimator.train(
             input_fn=lambda: datasets_utils.get_w2v_train_dataset(
                 training_data_filepath, train_mode, self._words, self._counts,
