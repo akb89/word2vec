@@ -47,15 +47,15 @@ class DatasetsUtilsTest(tf.test.TestCase):
                 w2v._words, w2v._counts)
             test_data_filepath = os.path.join(os.path.dirname(__file__),
                                               'resources', 'data.txt')
-            tf.tables_initializer().run()
+            tf.compat.v1.tables_initializer().run()
             dataset = (tf.data.TextLineDataset(test_data_filepath)
                        .map(tf.strings.strip)
-                       .map(lambda x: tf.strings.split([x])))
-            iterator = dataset.make_initializable_iterator()
+                       .map(lambda x: tf.strings.split([x]).to_sparse()))
+            iterator = tf.compat.v1.data.make_initializable_iterator(dataset)
             init_op = iterator.initializer
             x = iterator.get_next()
             session.run(init_op)
-            tokens = tf.convert_to_tensor(x.values.eval())
+            tokens = tf.convert_to_tensor(value=x.values.eval())
             prob = datasets_utils.sample_prob(
                 tokens, sampling_rate, word_count_table, w2v._total_count)
             sample = lambda x: 1 - math.sqrt(sampling_rate / (x / w2v._total_count))
@@ -76,11 +76,11 @@ class DatasetsUtilsTest(tf.test.TestCase):
             w2v.load_vocab(vocab_filepath, min_count)
             word_count_table = vocab_utils.get_tf_word_count_table(
                 w2v._words, w2v._counts)
-            tf.tables_initializer().run()
+            tf.compat.v1.tables_initializer().run()
             dataset = (tf.data.TextLineDataset(test_data_filepath)
                        .map(tf.strings.strip)
-                       .map(lambda x: tf.strings.split([x])))
-            iterator = dataset.make_initializable_iterator()
+                       .map(lambda x: tf.strings.split([x]).to_sparse()))
+            iterator = tf.compat.v1.data.make_initializable_iterator(dataset)
             init_op = iterator.initializer
             x = iterator.get_next()
             session.run(init_op)
@@ -103,11 +103,11 @@ class DatasetsUtilsTest(tf.test.TestCase):
             w2v.load_vocab(vocab_filepath, min_count)
             word_count_table = vocab_utils.get_tf_word_count_table(
                 w2v._words, w2v._counts)
-            tf.tables_initializer().run()
+            tf.compat.v1.tables_initializer().run()
             dataset = (tf.data.TextLineDataset(test_data_filepath)
                        .map(tf.strings.strip)
-                       .map(lambda x: tf.strings.split([x])))
-            iterator = dataset.make_initializable_iterator()
+                       .map(lambda x: tf.strings.split([x]).to_sparse()))
+            iterator = tf.compat.v1.data.make_initializable_iterator(dataset)
             init_op = iterator.initializer
             x = iterator.get_next()
             session.run(init_op)
@@ -155,8 +155,8 @@ class DatasetsUtilsTest(tf.test.TestCase):
                 test_data_filepath, 'cbow', w2v._words, w2v._counts,
                 w2v._total_count, window_size, sampling_rate, batch_size,
                 num_epochs, p_num_threads, shuffling_buffer_size)
-            tf.tables_initializer().run()
-            iterator = dataset.make_initializable_iterator()
+            tf.compat.v1.tables_initializer().run()
+            iterator = tf.compat.v1.data.make_initializable_iterator(dataset)
             init_op = iterator.initializer
             x = iterator.get_next()
             session.run(init_op)

@@ -20,13 +20,14 @@ def concat_mean_to_avg_tensor(features, vocab, embeddings):
         feat_row = features[idx]
         # select only valid context words
         is_valid_string = tf.not_equal(feat_row, '_CBOW#_!MASK_')
-        valid_feats = tf.boolean_mask(feat_row, is_valid_string)
+        valid_feats = tf.boolean_mask(tensor=feat_row, mask=is_valid_string)
         # discretized the features
         discretized_feats = vocab.lookup(valid_feats)
         # select their corresponding embeddings
-        embedded_feats = tf.nn.embedding_lookup(embeddings, discretized_feats)
+        embedded_feats = tf.nn.embedding_lookup(params=embeddings,
+                                                ids=discretized_feats)
         # average over the given context word embeddings
-        mean = tf.reduce_mean(embedded_feats, 0)
+        mean = tf.reduce_mean(input_tensor=embedded_feats, axis=0)
         # concatenate to the return averaged tensor stacking all
         # averaged context embeddings for a given batch
         avg = tf.concat([avg, [mean]], axis=0)
@@ -55,12 +56,12 @@ def avg_ctx_features_embeddings(features, embeddings, vocab, p_num_threads):
 
 def _model(features, labels, mode, params):
     vocab_table = vocab_utils.get_tf_vocab_table(params['words'])
-    with tf.name_scope('hidden'):
-        embeddings = tf.get_variable(
+    with tf.compat.v1.name_scope('hidden'):
+        embeddings = tf.compat.v1.get_variable(
             'embeddings', shape=[params['vocab_size'],
                                  params['embedding_size']],
-            initializer=tf.random_uniform_initializer(minval=-1.0,
-                                                      maxval=1.0))
+            initializer=tf.compat.v1.random_uniform_initializer(minval=-1.0,
+                                                                maxval=1.0))
     if params['mode'] == 'cbow':
         discret_labels = vocab_table.lookup(labels)
         discret_features_embeddings = avg_ctx_features_embeddings(
@@ -68,38 +69,37 @@ def _model(features, labels, mode, params):
     elif params['mode'] == 'skipgram':
         discret_labels = vocab_table.lookup(labels)
         discret_features_embeddings = tf.nn.embedding_lookup(
-            embeddings, vocab_table.lookup(features))
+            params=embeddings, ids=vocab_table.lookup(features))
 
-    with tf.name_scope('weights'):
-        nce_weights = tf.get_variable(
+    with tf.compat.v1.name_scope('weights'):
+        nce_weights = tf.compat.v1.get_variable(
             'nce_weights', shape=[params['vocab_size'],
                                   params['embedding_size']],
-            initializer=tf.truncated_normal_initializer(
+            initializer=tf.compat.v1.truncated_normal_initializer(
                 stddev=1.0 / math.sqrt(params['embedding_size'])))
 
-    with tf.name_scope('biases'):
-        nce_biases = tf.get_variable(
+    with tf.compat.v1.name_scope('biases'):
+        nce_biases = tf.compat.v1.get_variable(
             'nce_biases', shape=[params['vocab_size']],
-            initializer=tf.zeros_initializer)
+            initializer=tf.compat.v1.zeros_initializer)
 
-    with tf.name_scope('loss'):
+    with tf.compat.v1.name_scope('loss'):
         loss = tf.reduce_mean(
-            tf.nn.nce_loss(weights=nce_weights,
-                           biases=nce_biases,
-                           labels=discret_labels,
-                           inputs=discret_features_embeddings,
-                           num_sampled=params['num_neg_samples'],
-                           num_classes=params['vocab_size']))
+            input_tensor=tf.nn.nce_loss(weights=nce_weights,
+                                        biases=nce_biases,
+                                        labels=discret_labels,
+                                        inputs=discret_features_embeddings,
+                                        num_sampled=params['num_neg_samples'],
+                                        num_classes=params['vocab_size']))
 
-    with tf.name_scope('optimizer'):
-        optimizer = (tf.train.GradientDescentOptimizer(
-            params['learning_rate'])
-                     .minimize(loss,
-                               global_step=tf.train.get_global_step()))
+    with tf.compat.v1.name_scope('optimizer'):
+        optimizer = (tf.compat.v1.train.GradientDescentOptimizer(
+            params['learning_rate']).minimize(
+                loss, global_step=tf.compat.v1.train.get_global_step()))
     men_correlation = params['men'].get_men_correlation(
         vocab_table, embeddings)
     metrics = {'MEN': men_correlation}
-    tf.summary.scalar('MEN', men_correlation[1])
+    tf.compat.v1.summary.scalar('MEN', men_correlation[1])
     return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=optimizer,
                                       eval_metric_ops=metrics)
 
@@ -110,7 +110,7 @@ def model(features, labels, mode, params):
         raise Exception('Unsupported Word2Vec mode \'{}\''
                         .format(params['mode']))
     if params['xla']:
-        with tf.contrib.compiler.jit.experimental_jit_scope():
+        with tf.compiler.jit.experimental_jit_scope():
             return _model(features, labels, mode, params)
     else:
         return _model(features, labels, mode, params)

@@ -16,7 +16,7 @@ class VocabUtilsTest(tf.test.TestCase):
             w2v = Word2Vec()
             w2v.load_vocab(vocab_filepath, min_count)
             vocab = vocab_utils.get_tf_vocab_table(w2v._words)
-            tf.tables_initializer().run()
+            tf.compat.v1.tables_initializer().run()
             self.assertAllEqual(
                 vocab.lookup(tf.constant(['anarchism', 'is', 'UKN@!',
                                           '1711'])),
@@ -32,7 +32,7 @@ class VocabUtilsTest(tf.test.TestCase):
             w2v.load_vocab(vocab_filepath, min_count)
             word_count = vocab_utils.get_tf_word_count_table(
                 w2v._words, w2v._counts)
-            tf.tables_initializer().run()
+            tf.compat.v1.tables_initializer().run()
             self.assertAllEqual(
                 word_count.lookup(tf.constant(['anarchism', 'is', 'UKN@!',
                                                '1711'])),

@@ -89,7 +89,7 @@ class Word2Vec():
                             'training word2vec')
         if train_mode not in ('cbow', 'skipgram'):
             raise Exception('Unsupported train_mode \'{}\''.format(train_mode))
-        sess_config = tf.ConfigProto(log_device_placement=True)
+        sess_config = tf.compat.v1.ConfigProto(log_device_placement=True)
         sess_config.intra_op_parallelism_threads = t_num_threads
         sess_config.inter_op_parallelism_threads = t_num_threads
         # if xla:
@@ -118,14 +118,16 @@ class Word2Vec():
                     os.path.dirname(os.path.dirname(__file__)),
                     'resources', 'MEN_dataset_natural_form_full'))
             })
+        # waiting for v2 fix in tf.summary.FileWriter:
+        tf.compat.v1.disable_eager_execution()
         if debug:
-            hooks = [tf.train.ProfilerHook(
+            hooks = [tf.estimator.ProfilerHook(
                 save_steps=save_summary_steps, show_dataflow=True,
                 show_memory=True, output_dir=model_dirpath),
                      tf_debug.TensorBoardDebugHook('localhost:{}'
                                                    .format(debug_port))]
         else:
-            hooks = [tf.train.ProfilerHook(
+            hooks = [tf.estimator.ProfilerHook(
                 save_steps=save_summary_steps, show_dataflow=True,
                 show_memory=True, output_dir=model_dirpath)]
         estimator.train(

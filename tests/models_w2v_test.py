@@ -27,10 +27,10 @@ class W2VEstimatorTest(tf.test.TestCase):
             features = tf.constant([['the', 'first', 'test', '_CBOW#_!MASK_'],
                                     ['the', 'second', 'test', 'out']])
 
-            vocab = tf.contrib.lookup.index_table_from_tensor(
+            vocab = tf.lookup.index_table_from_tensor(
                 mapping=tf.constant(['the', 'first', 'second', 'test']),
                 num_oov_buckets=0, default_value=vocab_size)
-            tf.tables_initializer().run()
+            tf.compat.v1.tables_initializer().run()
             self.assertAllEqual(vocab.lookup(tf.constant(
                 ['the', 'first', 'second', 'test', 'out'])),
                                 tf.constant([0, 1, 2, 3, 4]))
@@ -58,10 +58,10 @@ class W2VEstimatorTest(tf.test.TestCase):
                                     ['_CBOW#_!MASK_', '_CBOW#_!MASK_',
                                      '_CBOW#_!MASK_', '_CBOW#_!MASK_']])
 
-            vocab = tf.contrib.lookup.index_table_from_tensor(
+            vocab = tf.lookup.index_table_from_tensor(
                 mapping=tf.constant(['the', 'first', 'second', 'test']),
                 num_oov_buckets=0, default_value=vocab_size)
-            tf.tables_initializer().run()
+            tf.compat.v1.tables_initializer().run()
             w = w2v_model.avg_ctx_features_embeddings(
                 features, embeddings, vocab, p_num_threads=1)
             self.assertAllEqual(
