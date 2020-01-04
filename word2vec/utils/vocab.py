@@ -10,10 +10,14 @@ def get_tf_vocab_table(words):
 
     Words are already prefiltered so that word count >= min_count.
     """
-    with tf.name_scope('vocab'):
-        return tf.contrib.lookup.index_table_from_tensor(
-            mapping=tf.convert_to_tensor(words), num_oov_buckets=0,
-            default_value=len(words))
+    with tf.compat.v1.name_scope('vocab'):
+        return tf.lookup.StaticVocabularyTable(
+            initializer=tf.lookup.KeyValueTensorInitializer(
+                keys=words,
+                values=list(range(0, len(words))),
+                key_dtype=tf.string,
+                value_dtype=tf.int64),
+            num_oov_buckets=1)
 
 
 def get_tf_word_count_table(words, counts):
@@ -23,8 +27,8 @@ def get_tf_word_count_table(words, counts):
     Type tf.float64 is necessary as counts get later divided to obtain
     frequencies.
     """
-    with tf.name_scope('word_count'):
-        return tf.contrib.lookup.HashTable(
-            tf.contrib.lookup.KeyValueTensorInitializer(
+    with tf.compat.v1.name_scope('word_count'):
+        return tf.lookup.StaticHashTable(
+            tf.lookup.KeyValueTensorInitializer(
                 words, counts, value_dtype=tf.float64),
             default_value=0)

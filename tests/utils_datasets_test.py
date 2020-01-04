@@ -12,7 +12,8 @@ from word2vec.estimators.word2vec import Word2Vec
 class DatasetsUtilsTest(tf.test.TestCase):
 
     def test_skipgram_concat_to_features_and_labels(self):
-        with self.test_session():
+        with self.session():
+            tf.compat.v1.disable_tensor_equality()
             train_mode = 'skipgram'
             window_size = 3
             tokens = tf.constant(['this', 'is', 'a', 'test', 'sent'])
@@ -36,7 +37,7 @@ class DatasetsUtilsTest(tf.test.TestCase):
 
 
     def test_sample_prob(self):
-        with self.test_session() as session:
+        with self.session() as session:
             sampling_rate = 1e-5
             min_count = 1
             vocab_filepath = os.path.join(os.path.dirname(__file__),
@@ -47,25 +48,22 @@ class DatasetsUtilsTest(tf.test.TestCase):
                 w2v._words, w2v._counts)
             test_data_filepath = os.path.join(os.path.dirname(__file__),
                                               'resources', 'data.txt')
-            tf.tables_initializer().run()
             dataset = (tf.data.TextLineDataset(test_data_filepath)
                        .map(tf.strings.strip)
-                       .map(lambda x: tf.strings.split([x])))
-            iterator = dataset.make_initializable_iterator()
-            init_op = iterator.initializer
+                       .map(lambda x: tf.strings.split([x]).to_sparse()))
+            iterator = tf.compat.v1.data.make_one_shot_iterator(dataset)
             x = iterator.get_next()
-            session.run(init_op)
-            tokens = tf.convert_to_tensor(x.values.eval())
+            tokens = tf.convert_to_tensor(value=x.values.numpy())
             prob = datasets_utils.sample_prob(
                 tokens, sampling_rate, word_count_table, w2v._total_count)
             sample = lambda x: 1 - math.sqrt(sampling_rate / (x / w2v._total_count))
             self.assertAllEqual(
                 prob, tf.constant(
-                    [sample(y) for y in word_count_table.lookup(tokens).eval()],
+                    [sample(y) for y in word_count_table.lookup(tokens).numpy()],
                     dtype=tf.float64))
 
     def test_filter_tokens_mask(self):
-        with self.test_session() as session:
+        with self.session() as session:
             min_count = 50
             sampling_rate = 1.
             test_data_filepath = os.path.join(os.path.dirname(__file__),
@@ -76,14 +74,11 @@ class DatasetsUtilsTest(tf.test.TestCase):
             w2v.load_vocab(vocab_filepath, min_count)
             word_count_table = vocab_utils.get_tf_word_count_table(
                 w2v._words, w2v._counts)
-            tf.tables_initializer().run()
             dataset = (tf.data.TextLineDataset(test_data_filepath)
                        .map(tf.strings.strip)
-                       .map(lambda x: tf.strings.split([x])))
-            iterator = dataset.make_initializable_iterator()
-            init_op = iterator.initializer
+                       .map(lambda x: tf.strings.split([x]).to_sparse()))
+            iterator = tf.compat.v1.data.make_one_shot_iterator(dataset)
             x = iterator.get_next()
-            session.run(init_op)
             self.assertAllEqual(datasets_utils.filter_tokens_mask(
                 x.values, sampling_rate, word_count_table, w2v._total_count),
                                 tf.constant(
@@ -92,7 +87,7 @@ class DatasetsUtilsTest(tf.test.TestCase):
                                      True, False, False, True]))
 
     def test_sample_tokens(self):
-        with self.test_session() as session:
+        with self.session() as session:
             min_count = 50
             sampling_rate = 1.
             test_data_filepath = os.path.join(os.path.dirname(__file__),
@@ -103,21 +98,19 @@ class DatasetsUtilsTest(tf.test.TestCase):
             w2v.load_vocab(vocab_filepath, min_count)
             word_count_table = vocab_utils.get_tf_word_count_table(
                 w2v._words, w2v._counts)
-            tf.tables_initializer().run()
             dataset = (tf.data.TextLineDataset(test_data_filepath)
                        .map(tf.strings.strip)
-                       .map(lambda x: tf.strings.split([x])))
-            iterator = dataset.make_initializable_iterator()
-            init_op = iterator.initializer
+                       .map(lambda x: tf.strings.split([x]).to_sparse()))
+            iterator = tf.compat.v1.data.make_one_shot_iterator(dataset)
             x = iterator.get_next()
-            session.run(init_op)
             self.assertAllEqual(datasets_utils.sample_tokens(
                 x.values, sampling_rate, word_count_table, w2v._total_count),
                                 tf.constant([b'anarchism', b'is', b'a',
                                              b'that', b'-', b'on', b'.']))
 
     def test_extract_cbow_examples(self):
-        with self.test_session():
+        with self.session():
+            tf.compat.v1.disable_tensor_equality()
             window_size = 2
             p_num_threads = 1
             tokens = tf.constant(['this', 'is', 'a', 'test', 'of', 'sent'])
@@ -137,7 +130,9 @@ class DatasetsUtilsTest(tf.test.TestCase):
                              [b'test', b'of', b'_CBOW#_!MASK_', b'_CBOW#_!MASK_']]))
 
     def test_get_cbow_train_dataset(self):
-        with self.test_session() as session:
+        with self.session() as session:
+            tf.compat.v1.disable_tensor_equality()
+            # tf.compat.v1.disable_eager_execution()
             sampling_rate = 1.
             window_size = 5
             min_count = 50
@@ -155,12 +150,8 @@ class DatasetsUtilsTest(tf.test.TestCase):
                 test_data_filepath, 'cbow', w2v._words, w2v._counts,
                 w2v._total_count, window_size, sampling_rate, batch_size,
                 num_epochs, p_num_threads, shuffling_buffer_size)
-            tf.tables_initializer().run()
-            iterator = dataset.make_initializable_iterator()
-            init_op = iterator.initializer
-            x = iterator.get_next()
-            session.run(init_op)
-            features, labels = session.run(x)
+            iterator = tf.compat.v1.data.make_one_shot_iterator(dataset)
+            features, labels = iterator.get_next()
             self.assertAllEqual(
                 features, tf.constant([[b'is', b'a', b'that', b'-', b'on',
                                         b'_CBOW#_!MASK_', b'_CBOW#_!MASK_',
