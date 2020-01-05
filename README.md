@@ -12,7 +12,11 @@ This is a re-implementation of Word2Vec relying on Tensorflow
 Works with python >= 3.6 and Tensorflow v2.0.
 
 ## Install
-After a git clone:
+via pip:
+```shell
+pip3 install tf-word2vec
+```
+or, after a git clone:
 ```shell
 python3 setup.py install
 ```
