@@ -13,24 +13,24 @@ __all__ = ('get_w2v_train_dataset')
 
 def ctx_idxx(target_idx, window_size, tokens):
     """Return positions of context words."""
-    ctx_range = tf.range(start=tf.maximum(tf.constant(0, dtype=tf.int32),
+    ctx_range = tf.range(start=tf.maximum(tf.constant(0, dtype=tf.int64),
                                           target_idx-window_size),
-                         limit=tf.minimum(tf.size(input=tokens, out_type=tf.int32),
+                         limit=tf.minimum(tf.size(input=tokens, out_type=tf.int64),
                                           target_idx+window_size+1),
-                         delta=1, dtype=tf.int32)
+                         delta=1, dtype=tf.int64)
     idx = tf.case({tf.less_equal(target_idx, window_size): lambda: target_idx,
                    tf.greater(target_idx, window_size): lambda: window_size},
                   exclusive=True)
-    t0 = lambda: tf.constant([], dtype=tf.int32)
+    t0 = lambda: tf.constant([], dtype=tf.int64)
     t1 = lambda: ctx_range[idx+1:]
     t2 = lambda: ctx_range[0:idx]
     t3 = lambda: tf.concat([ctx_range[0:idx], ctx_range[idx+1:]], axis=0)
     c1 = tf.logical_and(tf.equal(idx, 0),
-                        tf.less(idx+1, tf.size(input=ctx_range, out_type=tf.int32)))
+                        tf.less(idx+1, tf.size(input=ctx_range, out_type=tf.int64)))
     c2 = tf.logical_and(tf.greater(idx, 0),
-                        tf.equal(idx+1, tf.size(input=ctx_range, out_type=tf.int32)))
+                        tf.equal(idx+1, tf.size(input=ctx_range, out_type=tf.int64)))
     c3 = tf.logical_and(tf.greater(idx, 0),
-                        tf.less(idx+1, tf.size(input=ctx_range, out_type=tf.int32)))
+                        tf.less(idx+1, tf.size(input=ctx_range, out_type=tf.int64)))
     return tf.case({c1: t1, c2: t2, c3: t3}, default=t0, exclusive=True)
 
 
@@ -72,10 +72,10 @@ def extract_examples(tokens, train_mode, window_size, p_num_threads):
     elif train_mode == 'skipgram':
         features = tf.constant([], dtype=tf.string)
     labels = tf.constant([], shape=[0, 1], dtype=tf.string)
-    target_idx = tf.constant(0, dtype=tf.int32)
+    target_idx = tf.constant(0, dtype=tf.int64)
     concat_func = concat_to_features_and_labels(tokens, train_mode,
                                                 window_size)
-    max_size = tf.size(input=tokens, out_type=tf.int32)
+    max_size = tf.size(input=tokens, out_type=tf.int64)
     idx_below_tokens_size = lambda w, x, idx: tf.less(idx, max_size)
     if train_mode == 'cbow':
         result = tf.while_loop(

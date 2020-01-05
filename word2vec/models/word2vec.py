@@ -41,8 +41,8 @@ def avg_ctx_features_embeddings(features, embeddings, vocab, p_num_threads):
     embedding_size = embeddings.get_shape()[1]
     idx_within_batch_size = lambda x, idx: tf.less(idx, feat_batch_size)
     concat_func = concat_mean_to_avg_tensor(features, vocab, embeddings)
-    avg = tf.constant([], shape=[0, embedding_size], dtype=tf.float32)
-    idx = tf.constant(0, dtype=tf.int32)
+    avg = tf.constant([], shape=[0, embedding_size], dtype=tf.float64)
+    idx = tf.constant(0, dtype=tf.int64)
     avg, idx = tf.while_loop(
         cond=idx_within_batch_size,
         body=concat_func,

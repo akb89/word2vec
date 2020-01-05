@@ -21,8 +21,8 @@ class W2VEstimatorTest(tf.test.TestCase):
             self.assertEqual(embeddings.get_shape()[1], embedding_size)
             embeddings = tf.constant([[3., 3., 3.], [6., 6., 6.], [9., 9., 9.],
                                       [12., 12., 12.], [15., 15., 15.]])
-            avg = tf.constant(0, shape=[0, embedding_size], dtype=tf.float32)
-            idx = tf.constant(0, dtype=tf.int32)
+            avg = tf.constant(0, shape=[0, embedding_size], dtype=tf.float64)
+            idx = tf.constant(0, dtype=tf.int64)
 
             features = tf.constant([['the', 'first', 'test', '_CBOW#_!MASK_'],
                                     ['the', 'second', 'test', 'out']])

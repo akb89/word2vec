@@ -51,10 +51,10 @@ class MEN():
         return (tf.py_function(func=stats.spearmanr,
                                inp=[sim_predictions,
                                     tf.constant(self.sim_values,
-                                                dtype=tf.float32)],
+                                                dtype=tf.float64)],
                                Tout=tf.float64),
                 tf.py_function(func=stats.spearmanr,
                                inp=[sim_predictions,
                                     tf.constant(self.sim_values,
-                                                dtype=tf.float32)],
+                                                dtype=tf.float64)],
                                Tout=tf.float64))
