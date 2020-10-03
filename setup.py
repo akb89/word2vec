@@ -16,7 +16,7 @@ setup(
     author_email='akb@3azouz.net',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    version='1.0.4',
+    version='1.0.5',
     url='https://github.com/akb89/word2vec',
     download_url='https://github.com/akb89/word2vec/archive/1.0.3.tar.gz',
     license='MIT',
@@ -34,7 +34,7 @@ setup(
         ],
     },
     test_suite='tests',
-    install_requires=['pyyaml>=5.1', 'tensorflow==2.0.1', 'scipy==1.1.0',
+    install_requires=['pyyaml>=5.1', 'tensorflow==2.0.3', 'scipy==1.1.0',
                       'grpcio>=1.24.3', 'setuptools>=41.0.0'],
     dependency_links=[
         'https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-2.0.1-cp36-cp36m-manylinux2010_x86_64.whl',
