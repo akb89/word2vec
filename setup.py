@@ -16,7 +16,7 @@ setup(
     author_email='akb@3azouz.net',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    version='1.0.5',
+    version='1.0.6',
     url='https://github.com/akb89/word2vec',
     download_url='https://github.com/akb89/word2vec/archive/1.0.3.tar.gz',
     license='MIT',
