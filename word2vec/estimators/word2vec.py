@@ -49,7 +49,8 @@ class Word2Vec():
             for line in data_stream:
                 for word in line.strip().split():
                     word_count_dict[word] += 1
-        logger.info('Saving word frequencies to file: {}'.format(vocab_filepath))
+        logger.info('Saving word frequencies to file: {}'
+                    .format(vocab_filepath))
         with open(vocab_filepath, 'w') as vocab_stream:
             # words need to be sorted in decreasing frequency to be able
             # to rely on the default tf.nn.log_uniform_candidate_sampler
@@ -76,7 +77,7 @@ class Word2Vec():
                     self._total_count += count
         logger.info('Done loading word counts')
 
-    # pylint: disable=R0914
+    # pylint: disable=R0914,W0613
     def train(self, train_mode, training_data_filepath, model_dirpath,
               batch_size, embedding_size, num_neg_samples,
               learning_rate, window_size, num_epochs, sampling_rate,
