@@ -34,7 +34,7 @@ setup(
         ],
     },
     test_suite='tests',
-    install_requires=['pyyaml>=5.1', 'tensorflow==2.0.3', 'scipy==1.5.1',
+    install_requires=['pyyaml>=5.1', 'tensorflow==2.5.3', 'scipy==1.5.1',
                       'grpcio>=1.24.3', 'setuptools>=41.0.0', 'numpy==1.18.0'],
     dependency_links=[
         'https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow_cpu-2.3.0-cp36-cp36m-manylinux2010_x86_64.whl',
